@@ -19,9 +19,6 @@ const Index = () => {
           <Button asChild variant="outline">
             <Link to="/input-vouchers">Input Voucher Massal</Link>
           </Button>
-          <Button asChild variant="secondary">
-            <Link to="/dashboard">Dashboard Input ID</Link>
-          </Button>
         </div>
       </div>
       <MadeWithDyad />

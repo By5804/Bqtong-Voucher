@@ -10,25 +10,40 @@ import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
-type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 
 export default function VoucherPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<NewVoucher>({
-    tanggal: new Date().toISOString().split('T')[0],
-    nominal: 0,
-    code: '',
-    platform: 'LG'
-  });
   const { toast } = useToast();
+  
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    searchCode: '',
+    platform: 'all'
+  });
 
   const fetchVouchers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('vouchers')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (filters.startDate) {
+      query = query.gte('tanggal', filters.startDate);
+    }
+    if (filters.endDate) {
+      query = query.lte('tanggal', filters.endDate);
+    }
+    if (filters.searchCode) {
+      query = query.ilike('code', `%${filters.searchCode}%`);
+    }
+    if (filters.platform !== 'all') {
+      query = query.eq('platform', filters.platform);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -42,74 +57,78 @@ export default function VoucherPage() {
     fetchVouchers();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const { error } = await supabase
-      .from('vouchers')
-      .insert([formData]);
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Voucher berhasil ditambahkan" });
-      setFormData({
-        tanggal: new Date().toISOString().split('T')[0],
-        nominal: 0,
-        code: '',
-        platform: 'LG'
-      });
-      fetchVouchers();
-    }
-    setLoading(false);
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
   };
+
+  const handlePlatformChange = (value: string) => {
+    setFilters(prev => ({ ...prev, platform: value }));
+  };
+  
+  const handleFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchVouchers();
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      startDate: '',
+      endDate: '',
+      searchCode: '',
+      platform: 'all'
+    });
+    // Re-fetch all vouchers after clearing
+    fetchVouchers();
+  }
 
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">Manajemen Voucher</h1>
       
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-xl font-semibold mb-4">Tambah Voucher Baru</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h2 className="text-xl font-semibold mb-4">Filter Voucher</h2>
+        <form onSubmit={handleFilterSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Tanggal</label>
+              <label className="block text-sm font-medium mb-1">Dari Tanggal</label>
               <Input 
-                type="date" 
-                value={formData.tanggal}
-                onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
-                required
+                type="date"
+                name="startDate"
+                value={filters.startDate}
+                onChange={handleFilterChange}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Nominal</label>
+              <label className="block text-sm font-medium mb-1">Sampai Tanggal</label>
               <Input 
-                type="number" 
-                value={formData.nominal}
-                onChange={(e) => setFormData({...formData, nominal: Number(e.target.value)})}
-                required
+                type="date"
+                name="endDate"
+                value={filters.endDate}
+                onChange={handleFilterChange}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Kode Voucher</label>
+              <label className="block text-sm font-medium mb-1">Cari Kode Voucher</label>
               <Input 
-                type="text" 
-                value={formData.code}
-                onChange={(e) => setFormData({...formData, code: e.target.value})}
-                required
+                type="text"
+                name="searchCode"
+                placeholder="Masukkan kode..."
+                value={filters.searchCode}
+                onChange={handleFilterChange}
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Platform</label>
               <Select 
-                value={formData.platform}
-                onValueChange={(value: "LG" | "wahyu" | "Itemku") => setFormData({...formData, platform: value})}
+                value={filters.platform}
+                onValueChange={handlePlatformChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih Platform" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">Semua Platform</SelectItem>
                   <SelectItem value="LG">LG</SelectItem>
                   <SelectItem value="wahyu">wahyu</SelectItem>
                   <SelectItem value="Itemku">Itemku</SelectItem>
@@ -117,9 +136,10 @@ export default function VoucherPage() {
               </Select>
             </div>
           </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Menyimpan..." : "Simpan Voucher"}
-          </Button>
+          <div className="flex gap-4">
+            <Button type="submit">Terapkan Filter</Button>
+            <Button type="button" variant="outline" onClick={clearFilters}>Hapus Filter</Button>
+          </div>
         </form>
       </div>
 
