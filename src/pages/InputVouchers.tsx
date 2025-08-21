@@ -35,6 +35,33 @@ const InputVouchersPage = () => {
     setLoading(true);
 
     const codeList = codes.trim().split('\n').filter(code => code.trim() !== '');
+
+    // Check for duplicates before inserting
+    const { data: existingVouchers, error: checkError } = await supabase
+      .from('vouchers')
+      .select('code')
+      .in('code', codeList);
+
+    if (checkError) {
+      toast({
+        title: "Error",
+        description: `Gagal memeriksa duplikasi: ${checkError.message}`,
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (existingVouchers && existingVouchers.length > 0) {
+      const duplicateCodes = existingVouchers.map(v => v.code);
+      toast({
+        title: "Voucher Duplikat Ditemukan",
+        description: `Kode voucher berikut sudah ada: ${duplicateCodes.join(', ')}`,
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
     
     const vouchersToInsert: NewVoucher[] = codeList.map(code => ({
       tanggal,
