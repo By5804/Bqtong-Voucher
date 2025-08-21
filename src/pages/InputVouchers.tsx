@@ -72,37 +72,35 @@ const InputVouchersPage = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="tanggal-input" className="block text-sm font-medium mb-2 text-left">
-                  Tanggal
-                </label>
-                <Input
-                  id="tanggal-input"
-                  type="date"
-                  value={tanggal}
-                  onChange={(e) => setTanggal(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="platform-select" className="block text-sm font-medium mb-2 text-left">
-                  Provider
-                </label>
-                <Select 
-                  value={platform}
-                  onValueChange={(value: Platform) => setPlatform(value)}
-                >
-                  <SelectTrigger id="platform-select">
-                    <SelectValue placeholder="Pilih Provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LG">Lapakgaming</SelectItem>
-                    <SelectItem value="wahyu">Wahyu</SelectItem>
-                    <SelectItem value="Itemku">Itemku</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <label htmlFor="tanggal-input" className="block text-sm font-medium mb-2 text-left">
+                Tanggal
+              </label>
+              <Input
+                id="tanggal-input"
+                type="date"
+                value={tanggal}
+                onChange={(e) => setTanggal(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="platform-select" className="block text-sm font-medium mb-2 text-left">
+                Provider
+              </label>
+              <Select 
+                value={platform}
+                onValueChange={(value: Platform) => setPlatform(value)}
+              >
+                <SelectTrigger id="platform-select">
+                  <SelectValue placeholder="Pilih Provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LG">Lapakgaming</SelectItem>
+                  <SelectItem value="wahyu">Wahyu</SelectItem>
+                  <SelectItem value="Itemku">Itemku</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label htmlFor="codes-input" className="block text-sm font-medium mb-2 text-left">
