@@ -9,23 +9,35 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { ArrowRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
 
 export default function MoveVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedVouchers, setSelectedVouchers] = useState<string[]>([]);
+  
+  const [sourcePlatform, setSourcePlatform] = useState<Platform | 'all'>('all');
   const [targetPlatform, setTargetPlatform] = useState<Platform | ''>('');
+  
   const { toast } = useToast();
 
-  const fetchVouchers = async () => {
+  const fetchVouchers = async (platformFilter: Platform | 'all') => {
     setLoading(true);
-    const { data, error } = await supabase
+    setSelectedVouchers([]); // Reset selection on new fetch
+    let query = supabase
       .from('vouchers')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (platformFilter !== 'all') {
+      query = query.eq('platform', platformFilter);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -33,12 +45,18 @@ export default function MoveVouchersPage() {
       setVouchers(data || []);
     }
     setLoading(false);
-    setSelectedVouchers([]);
   };
 
   useEffect(() => {
-    fetchVouchers();
+    // Initial fetch for all vouchers
+    fetchVouchers('all');
   }, []);
+
+  const handleFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sourcePlatform) return;
+    fetchVouchers(sourcePlatform);
+  };
 
   const handleSelectVoucher = (id: string, checked: boolean) => {
     setSelectedVouchers(prev => 
@@ -59,6 +77,15 @@ export default function MoveVouchersPage() {
       });
       return;
     }
+    
+    if (sourcePlatform !== 'all' && sourcePlatform === targetPlatform) {
+        toast({
+            title: "Aksi Tidak Valid",
+            description: "Platform sumber dan tujuan tidak boleh sama.",
+            variant: "destructive"
+        });
+        return;
+    }
 
     setLoading(true);
     const { error } = await supabase
@@ -70,75 +97,117 @@ export default function MoveVouchersPage() {
       toast({ title: "Error", description: `Gagal memindahkan voucher: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `${selectedVouchers.length} voucher berhasil dipindahkan ke ${targetPlatform}.` });
-      fetchVouchers(); // Refresh data
+      // Refetch vouchers from the source platform to show the updated list
+      fetchVouchers(sourcePlatform); 
     }
     setLoading(false);
   };
+
+  const availableTargetPlatforms = platformOptions.filter(p => sourcePlatform === 'all' || p !== sourcePlatform);
 
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">Pindahkan Voucher Antar Platform</h1>
       
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex flex-col sm:flex-row gap-4 items-center mb-6 p-4 border rounded-lg">
-          <div className="flex-1">
-            <p className="font-semibold text-lg">{selectedVouchers.length} Voucher Dipilih</p>
-            <p className="text-sm text-gray-500">Pilih voucher dari tabel di bawah ini.</p>
-          </div>
-          <ArrowRight className="hidden sm:block" />
-          <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Pindahkan ke Platform</label>
-            <Select value={targetPlatform} onValueChange={(value: Platform) => setTargetPlatform(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Platform Tujuan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="LG">LG</SelectItem>
-                <SelectItem value="wahyu">wahyu</SelectItem>
-                <SelectItem value="Itemku">Itemku</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={handleMoveVouchers} disabled={loading || selectedVouchers.length === 0 || !targetPlatform}>
-            {loading ? 'Memindahkan...' : 'Pindahkan Voucher'}
-          </Button>
-        </div>
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Filter & Pindahkan</CardTitle>
+          <CardDescription>Pilih platform sumber untuk menampilkan voucher, lalu pilih platform tujuan untuk memindahkannya.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <label htmlFor="source-platform" className="block text-sm font-medium mb-1">Dari Platform</label>
+              <Select value={sourcePlatform} onValueChange={(value: Platform | 'all') => setSourcePlatform(value)}>
+                <SelectTrigger id="source-platform">
+                  <SelectValue placeholder="Pilih Platform Sumber" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Platform</SelectItem>
+                  {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Button type="submit" className="w-full md:w-auto">Tampilkan Voucher</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-        {loading && vouchers.length === 0 ? (
-          <p>Memuat data...</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">
-                  <Checkbox
-                    checked={selectedVouchers.length === vouchers.length && vouchers.length > 0}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>Kode Voucher</TableHead>
-                <TableHead>Platform Saat Ini</TableHead>
-                <TableHead>Tanggal</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vouchers.map((voucher) => (
-                <TableRow key={voucher.id}>
-                  <TableCell>
+      <Card>
+        <CardHeader>
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div>
+                    <CardTitle>Daftar Voucher</CardTitle>
+                    <CardDescription>{selectedVouchers.length} voucher dipilih dari {vouchers.length} yang ditampilkan.</CardDescription>
+                </div>
+                <div className="flex gap-4 items-center w-full sm:w-auto">
+                    <div className="flex-1">
+                        <Select 
+                            value={targetPlatform} 
+                            onValueChange={(value: Platform) => setTargetPlatform(value)}
+                            disabled={sourcePlatform === 'all'}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pilih Tujuan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableTargetPlatforms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Button onClick={handleMoveVouchers} disabled={loading || selectedVouchers.length === 0 || !targetPlatform}>
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                        Pindahkan
+                    </Button>
+                </div>
+            </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p>Memuat data...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">
                     <Checkbox
-                      checked={selectedVouchers.includes(voucher.id)}
-                      onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)}
+                      checked={selectedVouchers.length === vouchers.length && vouchers.length > 0}
+                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                      aria-label="Pilih semua"
                     />
-                  </TableCell>
-                  <TableCell>{voucher.code}</TableCell>
-                  <TableCell>{voucher.platform}</TableCell>
-                  <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
+                  </TableHead>
+                  <TableHead>Kode Voucher</TableHead>
+                  <TableHead>Platform Saat Ini</TableHead>
+                  <TableHead>Tanggal</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+              </TableHeader>
+              <TableBody>
+                {vouchers.map((voucher) => (
+                  <TableRow key={voucher.id} data-state={selectedVouchers.includes(voucher.id) && "selected"}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedVouchers.includes(voucher.id)}
+                        onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)}
+                        aria-label={`Pilih voucher ${voucher.code}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{voucher.code}</TableCell>
+                    <TableCell>{voucher.platform}</TableCell>
+                    <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          {vouchers.length === 0 && !loading && (
+            <div className="text-center py-10 text-gray-500">
+                <p>Tidak ada voucher yang ditemukan untuk platform yang dipilih.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
