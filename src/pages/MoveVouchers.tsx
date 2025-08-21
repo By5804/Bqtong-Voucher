@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Paygift website", "Paygift Sales", "Tokopedia"];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
 
 export default function MoveVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -192,6 +192,7 @@ export default function MoveVouchersPage() {
                     </TableHead>
                     <TableHead>Kode Voucher</TableHead>
                     <TableHead>Platform Saat Ini</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Tanggal</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -207,6 +208,7 @@ export default function MoveVouchersPage() {
                       </TableCell>
                       <TableCell className="font-medium">{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
+                      <TableCell>{voucher.source || '-'}</TableCell>
                       <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
