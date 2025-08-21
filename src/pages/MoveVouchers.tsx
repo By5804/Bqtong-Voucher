@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,37 +25,45 @@ export default function MoveVouchersPage() {
   
   const { toast } = useToast();
 
-  const fetchVouchers = async (platformFilter: Platform | 'all') => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalVouchers, setTotalVouchers] = useState(0);
+
+  const fetchVouchers = useCallback(async () => {
     setLoading(true);
-    setSelectedVouchers([]); // Reset selection on new fetch
+    setSelectedVouchers([]);
+    const from = (currentPage - 1) * itemsPerPage;
+    const to = from + itemsPerPage - 1;
+
     let query = supabase
       .from('vouchers')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
-    if (platformFilter !== 'all') {
-      query = query.eq('platform', platformFilter);
+    if (sourcePlatform !== 'all') {
+      query = query.eq('platform', sourcePlatform);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setVouchers(data || []);
+      setTotalVouchers(count || 0);
     }
     setLoading(false);
-  };
+  }, [currentPage, itemsPerPage, sourcePlatform, toast]);
 
   useEffect(() => {
-    // Initial fetch for all vouchers
-    fetchVouchers('all');
-  }, []);
+    fetchVouchers();
+  }, [fetchVouchers]);
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sourcePlatform) return;
-    fetchVouchers(sourcePlatform);
+    setCurrentPage(1);
+    fetchVouchers();
   };
 
   const handleSelectVoucher = (id: string, checked: boolean) => {
@@ -97,13 +105,13 @@ export default function MoveVouchersPage() {
       toast({ title: "Error", description: `Gagal memindahkan voucher: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `${selectedVouchers.length} voucher berhasil dipindahkan ke ${targetPlatform}.` });
-      // Refetch vouchers from the source platform to show the updated list
-      fetchVouchers(sourcePlatform); 
+      fetchVouchers(); 
     }
     setLoading(false);
   };
 
   const availableTargetPlatforms = platformOptions.filter(p => sourcePlatform === 'all' || p !== sourcePlatform);
+  const totalPages = Math.ceil(totalVouchers / itemsPerPage);
 
   return (
     <div className="container mx-auto py-8">
@@ -118,7 +126,10 @@ export default function MoveVouchersPage() {
           <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
               <label htmlFor="source-platform" className="block text-sm font-medium mb-1">Dari Platform</label>
-              <Select value={sourcePlatform} onValueChange={(value: Platform | 'all') => setSourcePlatform(value)}>
+              <Select value={sourcePlatform} onValueChange={(value: Platform | 'all') => {
+                  setSourcePlatform(value);
+                  setCurrentPage(1);
+                }}>
                 <SelectTrigger id="source-platform">
                   <SelectValue placeholder="Pilih Platform Sumber" />
                 </SelectTrigger>
@@ -139,8 +150,8 @@ export default function MoveVouchersPage() {
         <CardHeader>
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div>
-                    <CardTitle>Daftar Voucher</CardTitle>
-                    <CardDescription>{selectedVouchers.length} voucher dipilih dari {vouchers.length} yang ditampilkan.</CardDescription>
+                    <CardTitle>Daftar Voucher ({totalVouchers})</CardTitle>
+                    <CardDescription>{selectedVouchers.length} voucher dipilih.</CardDescription>
                 </div>
                 <div className="flex gap-4 items-center w-full sm:w-auto">
                     <div className="flex-1">
@@ -168,43 +179,87 @@ export default function MoveVouchersPage() {
           {loading ? (
             <p>Memuat data...</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={selectedVouchers.length === vouchers.length && vouchers.length > 0}
-                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                      aria-label="Pilih semua"
-                    />
-                  </TableHead>
-                  <TableHead>Kode Voucher</TableHead>
-                  <TableHead>Platform Saat Ini</TableHead>
-                  <TableHead>Tanggal</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vouchers.map((voucher) => (
-                  <TableRow key={voucher.id} data-state={selectedVouchers.includes(voucher.id) && "selected"}>
-                    <TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">
                       <Checkbox
-                        checked={selectedVouchers.includes(voucher.id)}
-                        onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)}
-                        aria-label={`Pilih voucher ${voucher.code}`}
+                        checked={selectedVouchers.length === vouchers.length && vouchers.length > 0}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                        aria-label="Pilih semua"
                       />
-                    </TableCell>
-                    <TableCell className="font-medium">{voucher.code}</TableCell>
-                    <TableCell>{voucher.platform}</TableCell>
-                    <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
+                    </TableHead>
+                    <TableHead>Kode Voucher</TableHead>
+                    <TableHead>Platform Saat Ini</TableHead>
+                    <TableHead>Tanggal</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          {vouchers.length === 0 && !loading && (
-            <div className="text-center py-10 text-gray-500">
-                <p>Tidak ada voucher yang ditemukan untuk platform yang dipilih.</p>
-            </div>
+                </TableHeader>
+                <TableBody>
+                  {vouchers.map((voucher) => (
+                    <TableRow key={voucher.id} data-state={selectedVouchers.includes(voucher.id) && "selected"}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedVouchers.includes(voucher.id)}
+                          onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)}
+                          aria-label={`Pilih voucher ${voucher.code}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{voucher.code}</TableCell>
+                      <TableCell>{voucher.platform}</TableCell>
+                      <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {vouchers.length === 0 && !loading && (
+                <div className="text-center py-10 text-gray-500">
+                    <p>Tidak ada voucher yang ditemukan untuk platform yang dipilih.</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={String(itemsPerPage)}
+                    onValueChange={(value) => {
+                      setItemsPerPage(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Items per page" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10 / Halaman</SelectItem>
+                      <SelectItem value="25">25 / Halaman</SelectItem>
+                      <SelectItem value="50">50 / Halaman</SelectItem>
+                      <SelectItem value="100">100 / Halaman</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm">
+                    Halaman {currentPage} dari {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Sebelumnya
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                    >
+                      Berikutnya
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
