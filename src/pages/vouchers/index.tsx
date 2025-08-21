@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
+import { subDays, formatISO } from "date-fns";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 
@@ -17,8 +18,8 @@ export default function VoucherPage() {
   const { toast } = useToast();
   
   const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
+    searchDate: '',
+    dateRange: 'all',
     searchCode: '',
     platform: 'all'
   });
@@ -30,12 +31,34 @@ export default function VoucherPage() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (filters.startDate) {
-      query = query.gte('tanggal', filters.startDate);
+    // Date filters
+    if (filters.searchDate) {
+      query = query.eq('tanggal', filters.searchDate);
+    } else if (filters.dateRange !== 'all') {
+      const today = new Date();
+      let startDate;
+      switch (filters.dateRange) {
+        case 'daily':
+          startDate = today;
+          break;
+        case 'weekly':
+          startDate = subDays(today, 7);
+          break;
+        case '2-weeks':
+          startDate = subDays(today, 14);
+          break;
+        case 'monthly':
+          startDate = subDays(today, 30);
+          break;
+        case 'yearly':
+          startDate = subDays(today, 365);
+          break;
+      }
+      if (startDate) {
+        query = query.gte('tanggal', formatISO(startDate, { representation: 'date' }));
+      }
     }
-    if (filters.endDate) {
-      query = query.lte('tanggal', filters.endDate);
-    }
+
     if (filters.searchCode) {
       query = query.ilike('code', `%${filters.searchCode}%`);
     }
@@ -59,11 +82,15 @@ export default function VoucherPage() {
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters(prev => ({ ...prev, [name]: value, dateRange: 'all' }));
   };
 
-  const handlePlatformChange = (value: string) => {
-    setFilters(prev => ({ ...prev, platform: value }));
+  const handleSelectChange = (name: 'platform' | 'dateRange', value: string) => {
+    const newFilters = { ...filters, [name]: value };
+    if (name === 'dateRange' && value !== 'all') {
+      newFilters.searchDate = '';
+    }
+    setFilters(newFilters);
   };
   
   const handleFilterSubmit = (e: React.FormEvent) => {
@@ -73,8 +100,8 @@ export default function VoucherPage() {
 
   const clearFilters = () => {
     setFilters({
-      startDate: '',
-      endDate: '',
+      searchDate: '',
+      dateRange: 'all',
       searchCode: '',
       platform: 'all'
     });
@@ -91,22 +118,32 @@ export default function VoucherPage() {
         <form onSubmit={handleFilterSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Dari Tanggal</label>
+              <label className="block text-sm font-medium mb-1">Cari per Tanggal</label>
               <Input 
                 type="date"
-                name="startDate"
-                value={filters.startDate}
+                name="searchDate"
+                value={filters.searchDate}
                 onChange={handleFilterChange}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Sampai Tanggal</label>
-              <Input 
-                type="date"
-                name="endDate"
-                value={filters.endDate}
-                onChange={handleFilterChange}
-              />
+              <label className="block text-sm font-medium mb-1">Filter Periode</label>
+              <Select 
+                value={filters.dateRange}
+                onValueChange={(value) => handleSelectChange('dateRange', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Periode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="daily">Harian</SelectItem>
+                  <SelectItem value="weekly">Mingguan</SelectItem>
+                  <SelectItem value="2-weeks">2 Minggu</SelectItem>
+                  <SelectItem value="monthly">1 Bulan</SelectItem>
+                  <SelectItem value="yearly">1 Tahun</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Cari Kode Voucher</label>
@@ -115,14 +152,14 @@ export default function VoucherPage() {
                 name="searchCode"
                 placeholder="Masukkan kode..."
                 value={filters.searchCode}
-                onChange={handleFilterChange}
+                onChange={(e) => setFilters(prev => ({...prev, searchCode: e.target.value}))}
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Platform</label>
               <Select 
                 value={filters.platform}
-                onValueChange={handlePlatformChange}
+                onValueChange={(value) => handleSelectChange('platform', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih Platform" />
@@ -160,7 +197,7 @@ export default function VoucherPage() {
             <TableBody>
               {vouchers.map((voucher) => (
                 <TableRow key={voucher.id}>
-                  <TableCell>{new Date(voucher.tanggal).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
                   <TableCell>{voucher.nominal.toLocaleString()}</TableCell>
                   <TableCell>{voucher.code}</TableCell>
                   <TableCell>{voucher.platform}</TableCell>
