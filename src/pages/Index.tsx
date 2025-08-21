@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   return (
@@ -13,7 +13,7 @@ const Index = () => {
           Kelola data voucher redeem dengan mudah
         </p>
         <Button asChild>
-          <Link href="/vouchers">Mulai Kelola Voucher</Link>
+          <Link to="/vouchers">Mulai Kelola Voucher</Link>
         </Button>
       </div>
       <MadeWithDyad />
