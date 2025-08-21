@@ -5,28 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 
-type Voucher = {
-  id: string;
-  created_at: string;
-  tanggal: string;
-  nominal: number;
-  code: string;
-  platform: "LG" | "wahyu" | "Itemku";
-};
+type Voucher = Database['public']['Tables']['vouchers']['Row'];
+type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 
 export default function VoucherPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<NewVoucher>({
     tanggal: new Date().toISOString().split('T')[0],
     nominal: 0,
     code: '',
     platform: 'LG'
   });
-  const supabase = createClientComponentClient();
   const { toast } = useToast();
 
   const fetchVouchers = async () => {
@@ -52,7 +46,7 @@ export default function VoucherPage() {
     e.preventDefault();
     setLoading(true);
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('vouchers')
       .insert([formData]);
 
@@ -110,7 +104,7 @@ export default function VoucherPage() {
               <label className="block text-sm font-medium mb-1">Platform</label>
               <Select 
                 value={formData.platform}
-                onValueChange={(value) => setFormData({...formData, platform: value as any})}
+                onValueChange={(value: "LG" | "wahyu" | "Itemku") => setFormData({...formData, platform: value})}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih Platform" />

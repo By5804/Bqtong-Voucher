@@ -12,9 +12,14 @@ const Index = () => {
         <p className="text-xl text-gray-600 mb-6">
           Kelola data voucher redeem dengan mudah
         </p>
-        <Button asChild>
-          <Link to="/vouchers">Mulai Kelola Voucher</Link>
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button asChild>
+            <Link to="/vouchers">Kelola Voucher</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link to="/dashboard">Dashboard Input ID</Link>
+          </Button>
+        </div>
       </div>
       <MadeWithDyad />
     </div>
