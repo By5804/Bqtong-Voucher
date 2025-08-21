@@ -14,10 +14,13 @@ const Index = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button asChild>
-            <Link to="/vouchers">Lihat Daftar Voucher</Link>
+            <Link to="/vouchers">Lihat & Hapus Voucher</Link>
           </Button>
           <Button asChild variant="outline">
             <Link to="/input-vouchers">Input Voucher Massal</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
         </div>
       </div>
