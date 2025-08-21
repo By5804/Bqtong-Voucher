@@ -17,6 +17,7 @@ const InputVouchersPage = () => {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
   const [codes, setCodes] = useState("");
   const [platform, setPlatform] = useState<Platform>("LG");
+  const [nominal, setNominal] = useState("50000");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -39,7 +40,7 @@ const InputVouchersPage = () => {
       tanggal,
       code: code.trim(),
       platform,
-      nominal: 0, // Default nominal to 0 as it's not in the form
+      nominal: parseInt(nominal, 10),
     }));
 
     const { error } = await supabase
@@ -99,6 +100,27 @@ const InputVouchersPage = () => {
                   <SelectItem value="LG">Lapakgaming</SelectItem>
                   <SelectItem value="wahyu">Wahyu</SelectItem>
                   <SelectItem value="Itemku">Itemku</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label htmlFor="nominal-select" className="block text-sm font-medium mb-2 text-left">
+                Nominal
+              </label>
+              <Select 
+                value={nominal}
+                onValueChange={(value) => setNominal(value)}
+              >
+                <SelectTrigger id="nominal-select">
+                  <SelectValue placeholder="Pilih Nominal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50000">50K</SelectItem>
+                  <SelectItem value="65000">65K</SelectItem>
+                  <SelectItem value="100000">100K</SelectItem>
+                  <SelectItem value="200000">200K</SelectItem>
+                  <SelectItem value="300000">300K</SelectItem>
+                  <SelectItem value="500000">500K</SelectItem>
                 </SelectContent>
               </Select>
             </div>
