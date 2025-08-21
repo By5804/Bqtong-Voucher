@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Paygift website", "Paygift Sales", "Tokopedia"];
 const nominalOptions = ["50000", "65000", "100000", "200000", "300000", "500000"];
 
 export default function VoucherPage() {

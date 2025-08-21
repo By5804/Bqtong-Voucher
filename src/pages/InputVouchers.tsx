@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
-type Platform = "LG" | "wahyu" | "Itemku";
+type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
 const InputVouchersPage = () => {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
@@ -127,6 +127,9 @@ const InputVouchersPage = () => {
                   <SelectItem value="LG">Lapakgaming</SelectItem>
                   <SelectItem value="wahyu">Wahyu</SelectItem>
                   <SelectItem value="Itemku">Itemku</SelectItem>
+                  <SelectItem value="Paygift website">Paygift website</SelectItem>
+                  <SelectItem value="Paygift Sales">Paygift Sales</SelectItem>
+                  <SelectItem value="Tokopedia">Tokopedia</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Paygift website", "Paygift Sales", "Tokopedia"];
 
 export default function MoveVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);

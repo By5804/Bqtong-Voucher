@@ -8,7 +8,7 @@ export type Database = {
           tanggal: string;
           nominal: number;
           code: string;
-          platform: "LG" | "wahyu" | "Itemku";
+          platform: "LG" | "wahyu" | "Itemku" | "Paygift website" | "Paygift Sales" | "Tokopedia";
         };
         Insert: {
           id?: string;
@@ -16,7 +16,7 @@ export type Database = {
           tanggal: string;
           nominal: number;
           code: string;
-          platform: "LG" | "wahyu" | "Itemku";
+          platform: "LG" | "wahyu" | "Itemku" | "Paygift website" | "Paygift Sales" | "Tokopedia";
         };
         Update: {
           id?: string;
@@ -24,7 +24,7 @@ export type Database = {
           tanggal?: string;
           nominal?: number;
           code?: string;
-          platform?: "LG" | "wahyu" | "Itemku";
+          platform?: "LG" | "wahyu" | "Itemku" | "Paygift website" | "Paygift Sales" | "Tokopedia";
         };
       };
     };
