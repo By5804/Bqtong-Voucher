@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,9 +23,14 @@ const InputVouchersPage = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const voucherCount = useMemo(() => {
+    if (!codes.trim()) return 0;
+    return codes.trim().split('\n').filter(code => code.trim() !== '').length;
+  }, [codes]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!codes.trim()) {
+    if (voucherCount === 0) {
       toast({
         title: "Error",
         description: "Kode voucher tidak boleh kosong.",
@@ -128,11 +133,14 @@ const InputVouchersPage = () => {
               </div>
             </div>
             <div>
-              <label htmlFor="codes-input" className="block text-sm font-medium mb-2 text-left">Kode Voucher</label>
+              <div className="flex justify-between items-center mb-2">
+                <label htmlFor="codes-input" className="block text-sm font-medium text-left">Kode Voucher</label>
+                <span className="text-sm text-muted-foreground">{voucherCount} voucher dimasukkan</span>
+              </div>
               <Textarea id="codes-input" value={codes} onChange={(e) => setCodes(e.target.value)} placeholder="Contoh:&#10;CODE123&#10;CODE456&#10;CODE789" required rows={10} />
             </div>
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? `Menyimpan ${codes.trim().split('\n').filter(c => c).length} voucher...` : "Simpan Voucher"}
+            <Button type="submit" disabled={loading || voucherCount === 0} className="w-full">
+              {loading ? `Menyimpan ${voucherCount} voucher...` : `Simpan ${voucherCount > 0 ? `${voucherCount} ` : ''}Voucher`}
             </Button>
           </form>
         </CardContent>
