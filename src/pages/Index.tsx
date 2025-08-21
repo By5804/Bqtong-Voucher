@@ -14,7 +14,10 @@ const Index = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button asChild>
-            <Link to="/vouchers">Kelola Voucher</Link>
+            <Link to="/vouchers">Lihat Daftar Voucher</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/input-vouchers">Input Voucher Massal</Link>
           </Button>
           <Button asChild variant="secondary">
             <Link to="/dashboard">Dashboard Input ID</Link>
