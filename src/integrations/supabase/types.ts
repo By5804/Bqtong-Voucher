@@ -8,7 +8,8 @@ export type Database = {
           tanggal: string;
           nominal: number;
           code: string;
-          platform: "LG" | "wahyu" | "Itemku" | "Paygift website" | "Paygift Sales" | "Tokopedia";
+          platform: "LG" | "wahyu" | "Itemku";
+          source: "Paygift website" | "Paygift Sales" | "Tokopedia" | null;
         };
         Insert: {
           id?: string;
@@ -16,7 +17,8 @@ export type Database = {
           tanggal: string;
           nominal: number;
           code: string;
-          platform: "LG" | "wahyu" | "Itemku" | "Paygift website" | "Paygift Sales" | "Tokopedia";
+          platform: "LG" | "wahyu" | "Itemku";
+          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | null;
         };
         Update: {
           id?: string;
@@ -24,7 +26,8 @@ export type Database = {
           tanggal?: string;
           nominal?: number;
           code?: string;
-          platform?: "LG" | "wahyu" | "Itemku" | "Paygift website" | "Paygift Sales" | "Tokopedia";
+          platform?: "LG" | "wahyu" | "Itemku";
+          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | null;
         };
       };
     };

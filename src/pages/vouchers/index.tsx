@@ -17,7 +17,10 @@ import { Label } from "@/components/ui/label";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Paygift website", "Paygift Sales", "Tokopedia"];
+type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
+
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
+const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia"];
 const nominalOptions = ["50000", "65000", "100000", "200000", "300000", "500000"];
 
 export default function VoucherPage() {
@@ -32,6 +35,7 @@ export default function VoucherPage() {
     dateRange: 'all',
     searchCode: '',
     platform: 'all',
+    source: 'all',
     nominal: 'all'
   });
 
@@ -67,15 +71,10 @@ export default function VoucherPage() {
       }
     }
 
-    if (filters.searchCode) {
-      query = query.ilike('code', `%${filters.searchCode}%`);
-    }
-    if (filters.platform !== 'all') {
-      query = query.eq('platform', filters.platform);
-    }
-    if (filters.nominal !== 'all') {
-      query = query.eq('nominal', parseInt(filters.nominal, 10));
-    }
+    if (filters.searchCode) query = query.ilike('code', `%${filters.searchCode}%`);
+    if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
+    if (filters.source !== 'all') query = query.eq('source', filters.source);
+    if (filters.nominal !== 'all') query = query.eq('nominal', parseInt(filters.nominal, 10));
 
     const { data, error, count } = await query;
 
@@ -104,7 +103,7 @@ export default function VoucherPage() {
   };
 
   const clearFilters = () => {
-    setFilters({ searchDate: '', dateRange: 'all', searchCode: '', platform: 'all', nominal: 'all' });
+    setFilters({ searchDate: '', dateRange: 'all', searchCode: '', platform: 'all', source: 'all', nominal: 'all' });
     setCurrentPage(1);
   }
 
@@ -121,10 +120,7 @@ export default function VoucherPage() {
   const handleDelete = async () => {
     if (selectedVouchers.length === 0) return;
     
-    const { error } = await supabase
-      .from('vouchers')
-      .delete()
-      .in('id', selectedVouchers);
+    const { error } = await supabase.from('vouchers').delete().in('id', selectedVouchers);
 
     if (error) {
       toast({ title: "Error", description: `Gagal menghapus voucher: ${error.message}`, variant: "destructive" });
@@ -142,12 +138,10 @@ export default function VoucherPage() {
       <h1 className="text-2xl font-bold mb-6">Manajemen Voucher</h1>
       
       <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Filter Voucher</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Filter Voucher</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={handleFilterSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label htmlFor="search-date">Tanggal Spesifik</Label>
                 <Input id="search-date" type="date" value={filters.searchDate} onChange={e => handleFilterChange('searchDate', e.target.value)} />
@@ -177,6 +171,16 @@ export default function VoucherPage() {
                 </Select>
               </div>
               <div>
+                <Label htmlFor="source">Source</Label>
+                <Select value={filters.source} onValueChange={value => handleFilterChange('source', value)}>
+                  <SelectTrigger id="source"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Source</SelectItem>
+                    {sourceOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label htmlFor="nominal">Nominal</Label>
                 <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)}>
                   <SelectTrigger id="nominal"><SelectValue /></SelectTrigger>
@@ -186,7 +190,7 @@ export default function VoucherPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="md:col-span-2">
+              <div className="lg:col-span-3">
                 <Label htmlFor="search-code">Cari Kode Voucher</Label>
                 <Input id="search-code" placeholder="Masukkan kode voucher..." value={filters.searchCode} onChange={e => handleFilterChange('searchCode', e.target.value)} />
               </div>
@@ -205,56 +209,45 @@ export default function VoucherPage() {
             <CardTitle>Daftar Voucher ({totalVouchers})</CardTitle>
             {selectedVouchers.length > 0 && (
               <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Hapus ({selectedVouchers.length})
+                <Trash2 className="mr-2 h-4 w-4" /> Hapus ({selectedVouchers.length})
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <p>Memuat data...</p>
-          ) : (
+          {loading ? (<p>Memuat data...</p>) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]">
-                      <Checkbox checked={selectedVouchers.length === vouchers.length && vouchers.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
-                    </TableHead>
+                    <TableHead className="w-[50px]"><Checkbox checked={selectedVouchers.length === vouchers.length && vouchers.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} /></TableHead>
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Nominal</TableHead>
                     <TableHead>Kode Voucher</TableHead>
                     <TableHead>Platform</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vouchers.map((voucher) => (
                     <TableRow key={voucher.id}>
-                      <TableCell>
-                        <Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} />
-                      </TableCell>
+                      <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
                       <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
                       <TableCell>{voucher.nominal.toLocaleString('id-ID')}</TableCell>
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
+                      <TableCell>{voucher.source || '-'}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => { setSelectedVouchers([voucher.id]); setIsDeleteDialogOpen(true); }}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedVouchers([voucher.id]); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {vouchers.length === 0 && !loading && (
-                <div className="text-center py-10 text-gray-500">
-                    <p>Tidak ada voucher yang cocok dengan filter Anda.</p>
-                </div>
-              )}
+              {vouchers.length === 0 && !loading && (<div className="text-center py-10 text-gray-500"><p>Tidak ada voucher yang cocok dengan filter Anda.</p></div>)}
               <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2">
+                <div>
                   <Select value={String(itemsPerPage)} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}>
                     <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -282,9 +275,7 @@ export default function VoucherPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tindakan ini tidak dapat dibatalkan. Ini akan menghapus {selectedVouchers.length} voucher secara permanen dari server.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus {selectedVouchers.length} voucher secara permanen.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
