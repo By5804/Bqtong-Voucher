@@ -11,7 +11,7 @@ import { Database } from "@/integrations/supabase/types";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const nominalOptions = ["50000", "65000", "100000", "200000", "300000", "500000"];
+const nominalOptions = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"]; // Menambahkan 100 dan 200
 
 export const UpdateSoldVouchers = () => {
   const [platform, setPlatform] = useState<Platform | ''>('');
@@ -66,7 +66,9 @@ export const UpdateSoldVouchers = () => {
             <Select value={nominal} onValueChange={setNominal} required>
               <SelectTrigger><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
               <SelectContent>
-                {nominalOptions.map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
+                <SelectItem value="100">100 RBX</SelectItem>
+                <SelectItem value="200">200 RBX</SelectItem>
+                {nominalOptions.filter(n => parseInt(n, 10) >= 50000).map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

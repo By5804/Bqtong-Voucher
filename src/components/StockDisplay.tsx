@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const nominalOptions = [50000, 65000, 100000, 200000, 300000, 500000]; // Menggunakan angka langsung
+const nominalOptions = [100, 200, 50000, 65000, 100000, 200000, 300000, 500000]; // Menambahkan 100 dan 200
 
 type DetailedStockData = {
   platform: Platform;
@@ -76,7 +76,9 @@ export const StockDisplay = () => {
                     .sort((a, b) => a.nominal - b.nominal) // Urutkan berdasarkan nominal
                     .map(({ nominal, count }) => (
                       <div key={`${platform}-${nominal}`} className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">{(nominal / 1000).toLocaleString('id-ID')}K</span>
+                        <span className="text-sm text-muted-foreground">
+                          {nominal === 100 ? "100 RBX" : nominal === 200 ? "200 RBX" : (nominal / 1000).toLocaleString('id-ID') + 'K'}
+                        </span>
                         <span className="text-lg font-semibold">{count}</span>
                       </div>
                     ))}

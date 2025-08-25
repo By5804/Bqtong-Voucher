@@ -22,7 +22,7 @@ type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['sourc
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
 const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia"];
-const nominalOptions = ["50000", "65000", "100000", "200000", "300000", "500000"];
+const nominalOptions = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"]; // Menambahkan 100 dan 200
 
 export default function VoucherPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -193,7 +193,9 @@ export default function VoucherPage() {
                   <SelectTrigger id="nominal"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Nominal</SelectItem>
-                    {nominalOptions.map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
+                    <SelectItem value="100">100 RBX</SelectItem>
+                    <SelectItem value="200">200 RBX</SelectItem>
+                    {nominalOptions.filter(n => parseInt(n, 10) >= 50000).map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -241,7 +243,9 @@ export default function VoucherPage() {
                     <TableRow key={voucher.id}>
                       <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
                       <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
-                      <TableCell>{voucher.nominal.toLocaleString('id-ID')}</TableCell>
+                      <TableCell>
+                        {voucher.nominal === 100 ? "100 RBX" : voucher.nominal === 200 ? "200 RBX" : voucher.nominal.toLocaleString('id-ID')}
+                      </TableCell>
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
                       <TableCell>{voucher.source || '-'}</TableCell>

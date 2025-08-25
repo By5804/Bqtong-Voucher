@@ -129,6 +129,8 @@ const InputVouchersPage = () => {
                 <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading}>
                   <SelectTrigger id="nominal-select"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="100">100 RBX</SelectItem>
+                    <SelectItem value="200">200 RBX</SelectItem>
                     <SelectItem value="50000">50K</SelectItem>
                     <SelectItem value="65000">65K</SelectItem>
                     <SelectItem value="100000">100K</SelectItem>
