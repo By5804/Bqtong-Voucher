@@ -5,30 +5,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const platformOptions = ["LG", "wahyu", "Itemku"];
+type Platform = "LG" | "wahyu" | "Itemku";
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
+const nominalOptions = [50000, 65000, 100000, 200000, 300000, 500000]; // Menggunakan angka langsung
 
-type StockData = {
-  platform: string;
+type DetailedStockData = {
+  platform: Platform;
+  nominal: number;
   count: number;
 };
 
 export const StockDisplay = () => {
-  const [stock, setStock] = useState<StockData[]>([]);
+  const [stock, setStock] = useState<DetailedStockData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStock = async () => {
       setLoading(true);
-      const stockPromises = platformOptions.map(async (platform) => {
-        const { count } = await supabase
-          .from("vouchers")
-          .select("*", { count: "exact", head: true })
-          .eq("platform", platform)
-          .eq("status", "available");
-        return { platform, count: count || 0 };
-      });
+      const allStockPromises: Promise<DetailedStockData>[] = [];
 
-      const results = await Promise.all(stockPromises);
+      for (const platform of platformOptions) {
+        for (const nominal of nominalOptions) {
+          const promise = supabase
+            .from("vouchers")
+            .select("*", { count: "exact", head: true })
+            .eq("platform", platform)
+            .eq("nominal", nominal)
+            .eq("status", "available")
+            .then(({ count }) => ({ platform, nominal, count: count || 0 }));
+          allStockPromises.push(promise);
+        }
+      }
+
+      const results = await Promise.all(allStockPromises);
       setStock(results);
       setLoading(false);
     };
@@ -46,18 +55,31 @@ export const StockDisplay = () => {
                 <CardHeader>
                   <CardTitle><Skeleton className="h-6 w-24" /></CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-10 w-16" />
+                <CardContent className="space-y-2">
+                  {nominalOptions.map((n) => (
+                    <div key={`${p}-${n}`} className="flex justify-between items-center">
+                      <span><Skeleton className="h-4 w-16" /></span>
+                      <span><Skeleton className="h-4 w-8" /></span>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             ))
-          : stock.map(({ platform, count }) => (
+          : platformOptions.map((platform) => (
               <Card key={platform}>
                 <CardHeader>
                   <CardTitle>{platform}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-bold">{count}</p>
+                <CardContent className="space-y-2">
+                  {stock
+                    .filter(item => item.platform === platform)
+                    .sort((a, b) => a.nominal - b.nominal) // Urutkan berdasarkan nominal
+                    .map(({ nominal, count }) => (
+                      <div key={`${platform}-${nominal}`} className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">{(nominal / 1000).toLocaleString('id-ID')}K</span>
+                        <span className="text-lg font-semibold">{count}</span>
+                      </div>
+                    ))}
                 </CardContent>
               </Card>
             ))}
