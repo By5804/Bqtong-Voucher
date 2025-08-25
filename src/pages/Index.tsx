@@ -19,11 +19,11 @@ const Index = () => {
       </div>
 
       <StockDisplay />
-      <SoldOutDisplay /> {/* Menambahkan komponen SoldOutDisplay di sini */}
-
-      <div className="text-center">
+      
+      <div className="text-center flex flex-col items-center gap-4"> {/* Menambahkan flex-col dan items-center untuk tata letak vertikal */}
         <p className="text-lg mb-4">Aksi Cepat:</p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <SoldOutDisplay /> {/* Memindahkan komponen SoldOutDisplay di sini */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4"> {/* Menambahkan margin-top untuk pemisah visual */}
           <Button asChild>
             <Link to="/vouchers">Lihat & Hapus Voucher</Link>
           </Button>
