@@ -5,8 +5,8 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
-import { PlusCircle } from "lucide-react";
-import { SoldOutDisplay } from "@/components/SoldOutDisplay"; // Import komponen baru
+import { PlusCircle, ListChecks } from "lucide-react"; // Import ListChecks icon
+// import { SoldOutDisplay } from "@/components/SoldOutDisplay"; // Hapus import ini
 
 const Index = () => {
   return (
@@ -20,10 +20,10 @@ const Index = () => {
 
       <StockDisplay />
       
-      <div className="text-center flex flex-col items-center gap-4"> {/* Menambahkan flex-col dan items-center untuk tata letak vertikal */}
+      <div className="text-center flex flex-col items-center gap-4">
         <p className="text-lg mb-4">Aksi Cepat:</p>
-        <SoldOutDisplay /> {/* Memindahkan komponen SoldOutDisplay di sini */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4"> {/* Menambahkan margin-top untuk pemisah visual */}
+        {/* <SoldOutDisplay /> -- Dihapus dan diganti dengan halaman terpisah */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4">
           <Button asChild>
             <Link to="/vouchers">Lihat & Hapus Voucher</Link>
           </Button>
@@ -38,6 +38,13 @@ const Index = () => {
             <Link to="/manual-stock-adjustment">
               <span className="flex items-center">
                 <PlusCircle className="mr-2 h-4 w-4" /> Tambah Stok Manual
+              </span>
+            </Link>
+          </Button>
+          <Button asChild variant="info" className="bg-blue-600 hover:bg-blue-700 text-white"> {/* Tombol baru */}
+            <Link to="/sold-vouchers">
+              <span className="flex items-center">
+                <ListChecks className="mr-2 h-4 w-4" /> Data Voucher Terjual
               </span>
             </Link>
           </Button>
