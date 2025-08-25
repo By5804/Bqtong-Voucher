@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HelpCircle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast"; // Import useToast
+import { useToast } from "@/components/ui/use-toast";
 
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
@@ -29,8 +29,9 @@ type StockData = {
 export const StockDisplay = () => {
   const [stock, setStock] = useState<StockData[]>([]);
   const [loadingInternal, setLoadingInternal] = useState(true);
-  const [loadingExternal, setLoadingExternal] = useState(false);
-  const { toast } = useToast(); // Inisialisasi useToast
+  const [loadingExternalLG, setLoadingExternalLG] = useState(false);
+  const [loadingExternalItemku, setLoadingExternalItemku] = useState(false);
+  const { toast } = useToast();
 
   // Fungsi untuk mengambil stok internal (berjalan otomatis saat mount)
   const fetchInternalStock = async () => {
@@ -62,32 +63,27 @@ export const StockDisplay = () => {
     setLoadingInternal(false);
   };
 
-  // Fungsi untuk mengambil stok eksternal (dipicu oleh tombol)
-  const fetchExternalStock = async () => {
-    setLoadingExternal(true);
+  // Fungsi umum untuk mengambil stok eksternal untuk platform tertentu
+  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform, setLoading: (loading: boolean) => void) => {
+    setLoading(true);
     
     setStock(prevStock => 
       prevStock.map(s => 
-        (s.platform === "Itemku" || s.platform === "LG") ? { ...s, external: 'loading' } : s
+        s.platform === targetPlatform ? { ...s, external: 'loading' } : s
       )
     );
 
-    const platformsToScrape: Platform[] = ["Itemku", "LG"];
-    const externalStockPromises = stock
-      .filter(item => platformsToScrape.includes(item.platform))
-      .map(async (item) => {
+    const platformItems = stock.filter(item => item.platform === targetPlatform);
+    const externalStockPromises = platformItems.map(async (item) => {
         try {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
             body: { platform: item.platform, nominal: item.nominal },
           });
 
-          // --- LOGGING TAMBAHAN DI SINI ---
           console.log(`[StockDisplay] Invoke result for ${item.platform} ${item.nominal}:`, { data, error });
-          // --- AKHIR LOGGING TAMBAHAN ---
 
           if (error) {
             console.error(`[StockDisplay] Frontend error for ${item.platform} ${item.nominal}:`, error);
-            // Handle specific 404 error from our edge function
             if (error.status === 404 && error.context?.body) {
                 const errorBody = JSON.parse(error.context.body);
                 toast({ title: "Error", description: errorBody.error, variant: "destructive" });
@@ -97,23 +93,32 @@ export const StockDisplay = () => {
             return { ...item, external: 'N/A' as const };
           }
           return { ...item, external: data.stock };
-        } catch (err: any) { // Tangkap error umum
+        } catch (err: any) {
           console.error(`[StockDisplay] General catch error for ${item.platform} ${item.nominal}:`, err);
           toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${err.message}`, variant: "destructive" });
           return { ...item, external: 'N/A' as const };
         }
-      });
+    });
 
-    for (const promise of externalStockPromises) {
-        const result = await promise;
-        setStock(prevStock => 
-            prevStock.map(s => 
-                s.platform === result.platform && s.nominal === result.nominal ? result : s
-            )
-        );
-    }
-    setLoadingExternal(false);
-  };
+    const results = await Promise.all(externalStockPromises);
+    setStock(prevStock => {
+        const newStock = prevStock.map(s => {
+            const updatedItem = results.find(r => r.platform === s.platform && r.nominal === s.nominal);
+            return updatedItem ? updatedItem : s;
+        });
+        return newStock;
+    });
+
+    setLoading(false);
+  }, [stock, toast]);
+
+  const fetchExternalStockLG = useCallback(() => {
+    fetchExternalStockForPlatform("LG", setLoadingExternalLG);
+  }, [fetchExternalStockForPlatform]);
+
+  const fetchExternalStockItemku = useCallback(() => {
+    fetchExternalStockForPlatform("Itemku", setLoadingExternalItemku);
+  }, [fetchExternalStockForPlatform]);
 
   useEffect(() => {
     fetchInternalStock();
@@ -124,19 +129,34 @@ export const StockDisplay = () => {
       <div className="w-full max-w-4xl">
         <h2 className="text-2xl font-bold text-center mb-4">Stok Voucher Tersedia</h2>
         
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-6 gap-4">
           <Button 
-            onClick={fetchExternalStock} 
-            disabled={loadingExternal}
+            onClick={fetchExternalStockLG} 
+            disabled={loadingExternalLG}
             className="flex items-center gap-2"
           >
-            {loadingExternal ? (
+            {loadingExternalLG ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Eksternal...
+                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok LG...
               </>
             ) : (
               <>
-                <RefreshCw className="h-4 w-4" /> Refresh Stok Eksternal
+                <RefreshCw className="h-4 w-4" /> Refresh Stok LG
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={fetchExternalStockItemku} 
+            disabled={loadingExternalItemku}
+            className="flex items-center gap-2"
+          >
+            {loadingExternalItemku ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Itemku...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" /> Refresh Stok Itemku
               </>
             )}
           </Button>
