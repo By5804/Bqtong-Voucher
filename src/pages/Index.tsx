@@ -23,13 +23,13 @@ const Index = () => {
         <p className="text-lg mb-4">Aksi Cepat:</p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4">
           <Button asChild>
-            <Link to="/vouchers"><span>Lihat & Hapus Voucher</span></Link> {/* Dibungkus dengan span */}
+            <Link to="/vouchers">Lihat & Hapus Voucher</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/input-vouchers"><span>Input Voucher Massal</span></Link> {/* Dibungkus dengan span */}
+            <Link to="/input-vouchers">Input Voucher Massal</Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link to="/move-vouchers"><span>Pindahkan Voucher</span></Link> {/* Dibungkus dengan span */}
+            <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
           <MarkSoldQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
