@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
-import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction"; // Import komponen baru
+import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
+import { PlusCircle } from "lucide-react"; // Import ikon baru
 
 const Index = () => {
   return (
@@ -30,7 +31,12 @@ const Index = () => {
           <Button asChild variant="secondary">
             <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
-          <MarkSoldQuickAction /> {/* Aksi cepat baru */}
+          <MarkSoldQuickAction />
+          <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white"> {/* Tombol baru */}
+            <Link to="/manual-stock-adjustment">
+              <PlusCircle className="mr-2 h-4 w-4" /> Tambah Stok Manual
+            </Link>
+          </Button>
         </div>
       </div>
 

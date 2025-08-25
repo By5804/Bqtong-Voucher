@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import VoucherPage from "./pages/vouchers";
 import InputVouchersPage from "./pages/InputVouchers";
 import MoveVouchersPage from "./pages/MoveVouchers";
+import ManualStockAdjustmentPage from "./pages/ManualStockAdjustment"; // Import halaman baru
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/vouchers" element={<VoucherPage />} />
           <Route path="/input-vouchers" element={<InputVouchersPage />} />
           <Route path="/move-vouchers" element={<MoveVouchersPage />} />
+          <Route path="/manual-stock-adjustment" element={<ManualStockAdjustmentPage />} /> {/* Rute baru */}
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
