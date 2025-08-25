@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
 import { PlusCircle } from "lucide-react";
+import { SoldOutDisplay } from "@/components/SoldOutDisplay"; // Import komponen baru
 
 const Index = () => {
   return (
@@ -18,6 +19,7 @@ const Index = () => {
       </div>
 
       <StockDisplay />
+      <SoldOutDisplay /> {/* Menambahkan komponen SoldOutDisplay di sini */}
 
       <div className="text-center">
         <p className="text-lg mb-4">Aksi Cepat:</p>
@@ -34,7 +36,7 @@ const Index = () => {
           <MarkSoldQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
             <Link to="/manual-stock-adjustment">
-              <span className="flex items-center"> {/* Wrapper span to fix error */}
+              <span className="flex items-center">
                 <PlusCircle className="mr-2 h-4 w-4" /> Tambah Stok Manual
               </span>
             </Link>
