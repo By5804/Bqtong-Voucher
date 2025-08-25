@@ -11,9 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback } from "react";
 import { subDays, formatISO } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, ArrowLeft } from "lucide-react"; // Import ArrowLeft
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
@@ -29,6 +30,7 @@ export default function VoucherPage() {
   const [selectedVouchers, setSelectedVouchers] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate(); // Inisialisasi useNavigate
   
   const [filters, setFilters] = useState({
     searchDate: '',
@@ -135,7 +137,12 @@ export default function VoucherPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Manajemen Voucher</h1>
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">Manajemen Voucher</h1>
+      </div>
       
       <Card className="mb-8">
         <CardHeader><CardTitle>Filter Voucher</CardTitle></CardHeader>

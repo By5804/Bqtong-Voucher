@@ -8,8 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowLeft } from "lucide-react"; // Import ArrowLeft
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
@@ -24,6 +25,7 @@ export default function MoveVouchersPage() {
   const [targetPlatform, setTargetPlatform] = useState<Platform | ''>('');
   
   const { toast } = useToast();
+  const navigate = useNavigate(); // Inisialisasi useNavigate
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -115,7 +117,12 @@ export default function MoveVouchersPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Pindahkan Voucher Antar Platform</h1>
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">Pindahkan Voucher Antar Platform</h1>
+      </div>
       
       <Card className="mb-8">
         <CardHeader>

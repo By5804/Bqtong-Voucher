@@ -1,0 +1,102 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+import { Tag } from "lucide-react";
+
+type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
+const nominalOptions = ["50000", "65000", "100000", "200000", "300000", "500000"];
+
+const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
+  const [platform, setPlatform] = useState<Platform | ''>('');
+  const [nominal, setNominal] = useState<string | ''>('');
+  const [quantity, setQuantity] = useState<number>(1);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!platform || !nominal || quantity <= 0) {
+      toast({ title: "Error", description: "Harap isi semua field dengan benar.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+
+    const { data, error } = await supabase.functions.invoke('mark-vouchers-sold', {
+      body: { platform, nominal: parseInt(nominal, 10), quantity },
+    });
+
+    if (error) {
+      toast({ title: "Error", description: `Gagal mengupdate: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ title: "Sukses", description: data.message });
+      // Reset form and close dialog
+      setPlatform('');
+      setNominal('');
+      setQuantity(1);
+      onClose(); // Close the dialog after successful update
+    }
+    setLoading(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+      <div>
+        <label className="block text-sm font-medium mb-1">Platform</label>
+        <Select value={platform} onValueChange={(v: Platform) => setPlatform(v)} required>
+          <SelectTrigger><SelectValue placeholder="Pilih Platform" /></SelectTrigger>
+          <SelectContent>
+            {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Nominal</label>
+        <Select value={nominal} onValueChange={setNominal} required>
+          <SelectTrigger><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
+          <SelectContent>
+            {nominalOptions.map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="md:col-span-2">
+        <label className="block text-sm font-medium mb-1">Jumlah</label>
+        <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} min="1" required />
+      </div>
+      <Button type="submit" disabled={loading} className="w-full md:col-span-2">
+        {loading ? "Memproses..." : "Update Terjual"}
+      </Button>
+    </form>
+  );
+};
+
+export const MarkSoldQuickAction = () => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="default">
+          <Tag className="mr-2 h-4 w-4" /> Tandai Terjual
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Tandai Voucher Terjual</DialogTitle>
+          <DialogDescription>
+            Pilih platform, nominal, dan jumlah voucher yang terjual. Sistem akan otomatis mengambil voucher tertua (FIFO).
+          </DialogDescription>
+        </DialogHeader>
+        <UpdateSoldVouchersForm onClose={() => setIsOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+};

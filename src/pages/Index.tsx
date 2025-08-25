@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
-import { UpdateSoldVouchers } from "@/components/UpdateSoldVouchers";
+import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction"; // Import komponen baru
 
 const Index = () => {
   return (
@@ -30,10 +30,9 @@ const Index = () => {
           <Button asChild variant="secondary">
             <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
+          <MarkSoldQuickAction /> {/* Aksi cepat baru */}
         </div>
       </div>
-
-      <UpdateSoldVouchers />
 
       <MadeWithDyad />
     </div>

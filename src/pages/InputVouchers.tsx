@@ -10,6 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import { ArrowLeft } from "lucide-react"; // Import ArrowLeft
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
@@ -27,6 +29,7 @@ const InputVouchersPage = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
+  const navigate = useNavigate(); // Inisialisasi useNavigate
 
   const voucherCount = useMemo(() => {
     if (!codes.trim()) return 0;
@@ -106,7 +109,12 @@ const InputVouchersPage = () => {
     <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle>Input Voucher Massal</CardTitle>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle>Input Voucher Massal</CardTitle>
+          </div>
           <CardDescription>Masukkan data voucher pada form di bawah ini. Pisahkan setiap kode voucher dengan baris baru.</CardDescription>
         </CardHeader>
         <CardContent>
