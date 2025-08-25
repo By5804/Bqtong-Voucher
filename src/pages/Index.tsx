@@ -5,7 +5,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
-import { PlusCircle } from "lucide-react"; // Import ikon baru
+import { PlusCircle } from "lucide-react";
 
 const Index = () => {
   return (
@@ -32,9 +32,11 @@ const Index = () => {
             <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
           <MarkSoldQuickAction />
-          <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white"> {/* Tombol baru */}
+          <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
             <Link to="/manual-stock-adjustment">
-              <PlusCircle className="mr-2 h-4 w-4" /> Tambah Stok Manual
+              <span className="flex items-center"> {/* Wrapper span to fix error */}
+                <PlusCircle className="mr-2 h-4 w-4" /> Tambah Stok Manual
+              </span>
             </Link>
           </Button>
         </div>
