@@ -40,8 +40,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [itemTypeId, setItemTypeId] = useState<string>('');
   const [itemInfoGroupId, setItemInfoGroupId] = useState<string>('');
   const [itemInfoId, setItemInfoId] = useState<string>('');
-  const [productId, setProductId] = useState<string>('');
-  const [storeName, setStoreName] = useState<string>(''); // State baru untuk store_name
+  const [productId, setProductId] = useState<string>(''); // Default ke string kosong
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<ProductMapping[]>([]);
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
@@ -87,8 +86,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemTypeId('');
     setItemInfoGroupId('');
     setItemInfoId('');
-    setProductId('');
-    setStoreName(''); // Reset store_name
+    setProductId(''); // Reset ke string kosong
     setEditingMapping(null);
   };
 
@@ -108,8 +106,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       isNaN(parsedItemTypeId) ||
       isNaN(parsedItemInfoGroupId) ||
       isNaN(parsedItemInfoId) ||
-      !productId.trim() ||
-      !storeName.trim() // Validasi store_name tidak boleh kosong
+      !productId.trim() // Validasi product_id tidak boleh kosong
     ) {
       toast({ title: "Error", description: "Harap isi semua field wajib dengan benar.", variant: "destructive" });
       return;
@@ -123,8 +120,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       item_type_id: parsedItemTypeId,
       item_info_group_id: parsedItemInfoGroupId,
       item_info_id: parsedItemInfoId,
-      product_id: productId.trim(),
-      store_name: storeName.trim(), // Sertakan store_name dalam payload
+      product_id: productId.trim(), // Pastikan product_id tidak kosong
     };
 
     let error;
@@ -159,8 +155,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemTypeId(String(mapping.item_type_id));
     setItemInfoGroupId(String(mapping.item_info_group_id));
     setItemInfoId(String(mapping.item_info_id));
-    setProductId(mapping.product_id);
-    setStoreName(mapping.store_name); // Set store_name dari mapping
+    setProductId(mapping.product_id); // Set product_id dari mapping
   };
 
   const confirmDelete = (id: string) => {
@@ -229,10 +224,6 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
           <Label htmlFor="product-id-input">Product ID</Label>
           <Input id="product-id-input" type="text" value={productId} onChange={e => setProductId(e.target.value)} disabled={loading} placeholder="ID Produk Eksternal" required />
         </div>
-        <div className="md:col-span-2">
-          <Label htmlFor="store-name-input">Nama Toko (Itemku)</Label>
-          <Input id="store-name-input" type="text" value={storeName} onChange={e => setStoreName(e.target.value)} disabled={loading} placeholder="Nama Toko di Itemku" required />
-        </div>
         <div className="md:col-span-2 flex gap-2">
           <Button type="submit" disabled={loading} className="flex-1">
             {loading ? "Menyimpan..." : editingMapping ? "Perbarui Mapping" : "Tambah Mapping"}
@@ -262,7 +253,6 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                 <TableHead>Item Info Group ID</TableHead>
                 <TableHead>Item Info ID</TableHead>
                 <TableHead>Product ID</TableHead>
-                <TableHead>Nama Toko</TableHead> {/* Kolom baru */}
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -275,8 +265,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                   <TableCell>{mapping.item_type_id}</TableCell>
                   <TableCell>{mapping.item_info_group_id}</TableCell>
                   <TableCell>{mapping.item_info_id}</TableCell>
-                  <TableCell>{mapping.product_id}</TableCell>
-                  <TableCell>{mapping.store_name}</TableCell> {/* Tampilkan store_name */}
+                  <TableCell>{mapping.product_id}</TableCell> {/* product_id tidak lagi null */}
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="icon" onClick={() => handleEdit(mapping)} disabled={loading}>
                       <Edit className="h-4 w-4" />
