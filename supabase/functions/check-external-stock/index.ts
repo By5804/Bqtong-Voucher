@@ -28,9 +28,10 @@ serve(async (req) => {
     );
 
     // Fetch product mapping from the database for the given platform and nominal
+    // Sekarang juga mengambil product_id
     const { data: productMapping, error: fetchMappingError } = await supabaseAdmin
       .from('product_mappings')
-      .select('game_id, item_type_id, item_info_group_id, item_info_id')
+      .select('game_id, item_type_id, item_info_group_id, item_info_id, product_id') // Menambahkan product_id
       .eq('platform', platform)
       .eq('nominal', nominal)
       .single();
@@ -58,7 +59,8 @@ serve(async (req) => {
         use_auto_delivery:'true',
     };
 
-    const finalParams = { ...baseParams, ...productMapping }; // Use fetched mapping
+    // Gabungkan baseParams dengan productMapping, termasuk product_id
+    const finalParams = { ...baseParams, ...productMapping }; 
     const url = new URL(scrapeUrl);
     url.search = new URLSearchParams(finalParams as Record<string, string>).toString();
 
