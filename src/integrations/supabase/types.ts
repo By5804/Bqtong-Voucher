@@ -42,6 +42,7 @@ export type Database = {
           item_type_id: number;
           item_info_group_id: number;
           item_info_id: number;
+          product_id: string | null; // Kolom baru
           created_at: string;
         };
         Insert: {
@@ -52,6 +53,7 @@ export type Database = {
           item_type_id: number;
           item_info_group_id: number;
           item_info_id: number;
+          product_id?: string | null; // Kolom baru
           created_at?: string;
         };
         Update: {
@@ -62,6 +64,7 @@ export type Database = {
           item_type_id?: number;
           item_info_group_id?: number;
           item_info_id?: number;
+          product_id?: string | null; // Kolom baru
           created_at?: string;
         };
       };
