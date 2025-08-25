@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
-import { SoldOutDisplay } from "@/components/SoldOutDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
+import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction"; // Import komponen baru
 import { PlusCircle } from "lucide-react";
 
 const Index = () => {
@@ -19,7 +19,6 @@ const Index = () => {
       </div>
 
       <StockDisplay />
-      <SoldOutDisplay />
       
       <div className="text-center flex flex-col items-center gap-4 w-full max-w-4xl">
         <p className="text-lg mb-2">Aksi Cepat:</p>
@@ -34,6 +33,7 @@ const Index = () => {
             <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
           <MarkSoldQuickAction />
+          <ViewSoldVouchersQuickAction /> {/* Menambahkan tombol aksi cepat baru */}
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
             <Link to="/manual-stock-adjustment">
               <span className="flex items-center">
