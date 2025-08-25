@@ -1,25 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// --- KONFIGURASI PRODUK ---
-// Anda perlu mengisi ID yang benar dari Itemku untuk setiap produk.
-// Saya telah mengisi beberapa contoh berdasarkan permintaan Anda.
-const productMappings = {
-  "Itemku": {
-    "50000": { game_id: 1, item_type_id: 10, item_info_group_id: 100, item_info_id: 1000 },
-    "65000": { game_id: 1, item_type_id: 10, item_info_group_id: 100, item_info_id: 1001 },
-    "100000": { game_id: 1, item_type_id: 10, item_info_group_id: 100, item_info_id: 1002 },
-    // Tambahkan nominal lainnya di sini...
-  },
-  "LG": {
-    // Konfigurasi untuk Lapakgaming akan ditambahkan di sini jika API tersedia
-  }
-};
-// -------------------------
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -36,19 +21,34 @@ serve(async (req) => {
       });
     }
 
+    // Gunakan service_role key untuk hak akses penuh di server
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Fetch product mapping from the database
+    const { data: productMapping, error: fetchMappingError } = await supabaseAdmin
+      .from('product_mappings')
+      .select('game_id, item_type_id, item_info_group_id, item_info_id')
+      .eq('platform', platform)
+      .eq('nominal', nominal)
+      .single();
+
+    if (fetchMappingError) {
+      if (fetchMappingError.code === 'PGRST116') { // No rows found
+        return new Response(JSON.stringify({ error: `Mapping untuk ${platform} - ${nominal} tidak ditemukan di database.` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        });
+      }
+      throw fetchMappingError;
+    }
+
     if (platform !== "Itemku") {
        return new Response(JSON.stringify({ stock: 'N/A', message: 'API Scraper belum diimplementasikan untuk platform ini.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
-      });
-    }
-
-    const productParams = productMappings[platform]?.[nominal];
-
-    if (!productParams) {
-      return new Response(JSON.stringify({ error: `Mapping untuk ${platform} - ${nominal} tidak ditemukan.` }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 404,
       });
     }
 
@@ -64,9 +64,9 @@ serve(async (req) => {
         use_auto_delivery:'true',
     };
 
-    const finalParams = { ...baseParams, ...productParams };
+    const finalParams = { ...baseParams, ...productMapping }; // Use fetched mapping
     const url = new URL(scrapeUrl);
-    url.search = new URLSearchParams(finalParams).toString();
+    url.search = new URLSearchParams(finalParams as Record<string, string>).toString();
 
     const response = await fetch(url.toString());
 

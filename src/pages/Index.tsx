@@ -5,7 +5,8 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
-import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction"; // Import komponen baru
+import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction";
+import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction"; // Import komponen baru
 import { PlusCircle } from "lucide-react";
 
 const Index = () => {
@@ -33,7 +34,7 @@ const Index = () => {
             <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
           <MarkSoldQuickAction />
-          <ViewSoldVouchersQuickAction /> {/* Menambahkan tombol aksi cepat baru */}
+          <ViewSoldVouchersQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
             <Link to="/manual-stock-adjustment">
               <span className="flex items-center">
@@ -41,6 +42,7 @@ const Index = () => {
               </span>
             </Link>
           </Button>
+          <ManageProductMappingsQuickAction /> {/* Menambahkan tombol aksi cepat baru */}
         </div>
       </div>
 

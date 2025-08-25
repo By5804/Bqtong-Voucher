@@ -33,6 +33,38 @@ export type Database = {
           status?: 'available' | 'sold'; // Kolom baru
         };
       };
+      product_mappings: {
+        Row: {
+          id: string;
+          platform: string;
+          nominal: number;
+          game_id: number;
+          item_type_id: number;
+          item_info_group_id: number;
+          item_info_id: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          platform: string;
+          nominal: number;
+          game_id: number;
+          item_type_id: number;
+          item_info_group_id: number;
+          item_info_id: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          platform?: string;
+          nominal?: number;
+          game_id?: number;
+          item_type_id?: number;
+          item_info_group_id?: number;
+          item_info_id?: number;
+          created_at?: string;
+        };
+      };
     };
   };
 };
