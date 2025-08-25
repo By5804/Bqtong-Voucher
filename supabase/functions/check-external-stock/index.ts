@@ -28,9 +28,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Fetch all relevant product mapping details, including product_id
     const { data: productMapping, error: fetchMappingError } = await supabaseAdmin
       .from('product_mappings')
-      .select('product_id')
+      .select('product_id, game_id, item_type_id, item_info_group_id, item_info_id') // Select all necessary fields
       .eq('platform', platform)
       .eq('nominal', nominal)
       .single();
@@ -51,16 +52,25 @@ serve(async (req) => {
 
     const scrapeUrl = "https://api-gateway.itemku.com/v1/product";
     
-    // Drastis menyederhanakan parameter untuk fokus pada lookup product_id
+    // Combine base parameters with all fetched product mapping details
     const finalParams = {
       product_id: productMapping.product_id,
-      is_from_web: '1', // Parameter ini tampaknya umum dan mungkin diperlukan
+      game_id: String(productMapping.game_id), // Convert to string for URLSearchParams
+      item_type_id: String(productMapping.item_type_id), // Convert to string
+      item_info_group_id: productMapping.item_info_group_id ? String(productMapping.item_info_group_id) : undefined, // Optional
+      item_info_id: String(productMapping.item_info_id), // Convert to string
+      is_from_web: '1',
+      "country_codes[]": 'ID',
+      per_page: '1',
+      page: '1',
     };
 
     const url = new URL(scrapeUrl);
-    url.search = new URLSearchParams(finalParams as Record<string, string>).toString();
+    // Filter out undefined values before creating URLSearchParams
+    const filteredParams = Object.fromEntries(Object.entries(finalParams).filter(([, v]) => v !== undefined));
+    url.search = new URLSearchParams(filteredParams as Record<string, string>).toString();
 
-    console.log('Calling Itemku API with drastically simplified URL:', url.toString());
+    console.log('Calling Itemku API with comprehensive URL:', url.toString());
 
     const response = await fetch(url.toString());
 
