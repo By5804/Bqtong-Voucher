@@ -1,3 +1,4 @@
+import React from "react"; // Import React secara eksplisit
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,12 +11,11 @@ import InputVouchersPage from "./pages/InputVouchers";
 import MoveVouchersPage from "./pages/MoveVouchers";
 import ManualStockAdjustmentPage from "./pages/ManualStockAdjustment";
 import SoldVouchersPage from "./pages/SoldVouchersPage";
-// import React from "react"; // React sudah diimpor secara implisit untuk JSX, Fragment tidak perlu diimpor secara eksplisit jika menggunakan <>
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <> {/* Menggunakan React Fragment implisit sebagai root */}
+  <React.Fragment> {/* Menggunakan React.Fragment eksplisit */}
     <Toaster />
     <Sonner />
     <QueryClientProvider client={queryClient}>
@@ -34,7 +34,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
-  </>
+  </React.Fragment>
 );
 
 export default App;
