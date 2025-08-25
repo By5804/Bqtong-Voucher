@@ -44,7 +44,7 @@ export type Database = {
           item_info_id: number;
           product_id: string;
           created_at: string;
-          store_name: string; // Kolom baru
+          store_name: string | null; // Diperbarui: bisa null
         };
         Insert: {
           id?: string;
@@ -56,7 +56,7 @@ export type Database = {
           item_info_id: number;
           product_id: string;
           created_at?: string;
-          store_name?: string; // Kolom baru
+          store_name?: string | null; // Diperbarui: bisa null
         };
         Update: {
           id?: string;
@@ -68,7 +68,7 @@ export type Database = {
           item_info_id?: number;
           product_id?: string;
           created_at?: string;
-          store_name?: string; // Kolom baru
+          store_name?: string | null; // Diperbarui: bisa null
         };
       };
     };

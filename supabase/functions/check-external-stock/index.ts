@@ -100,11 +100,17 @@ serve(async (req) => {
     const storeName = productMapping.store_name;
     const targetProductId = productMapping.product_id;
 
-    // Filter hasil untuk menemukan produk kita berdasarkan store_name DAN product_id
-    const myProduct = competitorList.find((p: any) => 
-      p.seller?.shop_name?.toLowerCase() === storeName.toLowerCase() && 
-      p.id?.toString() === targetProductId
-    );
+    // Filter hasil untuk menemukan produk kita berdasarkan product_id,
+    // dan opsional berdasarkan store_name jika disediakan.
+    const myProduct = competitorList.find((p: any) => {
+      const matchesProductId = p.id?.toString() === targetProductId;
+      // Hanya cocokkan store_name jika storeName tidak null atau string kosong
+      const matchesStoreName = storeName 
+        ? p.seller?.shop_name?.toLowerCase() === storeName.toLowerCase() 
+        : true; 
+
+      return matchesProductId && matchesStoreName;
+    });
 
     let stock = 0;
     if (myProduct) {

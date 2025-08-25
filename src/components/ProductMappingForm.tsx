@@ -41,7 +41,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [itemInfoGroupId, setItemInfoGroupId] = useState<string>('');
   const [itemInfoId, setItemInfoId] = useState<string>('');
   const [productId, setProductId] = useState<string>('');
-  const [storeName, setStoreName] = useState<string>('');
+  const [storeName, setStoreName] = useState<string>(''); // Tetap string, akan diubah ke null jika kosong saat insert/update
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<ProductMapping[]>([]);
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
@@ -108,8 +108,8 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       isNaN(parsedItemTypeId) ||
       isNaN(parsedItemInfoGroupId) ||
       isNaN(parsedItemInfoId) ||
-      !productId.trim() ||
-      !storeName.trim()
+      !productId.trim()
+      // !storeName.trim() // Dihapus karena storeName sekarang opsional
     ) {
       toast({ title: "Error", description: "Harap isi semua field wajib dengan benar.", variant: "destructive" });
       return;
@@ -149,7 +149,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       item_info_group_id: parsedItemInfoGroupId,
       item_info_id: parsedItemInfoId,
       product_id: productId.trim(),
-      store_name: storeName.trim(),
+      store_name: storeName.trim() === '' ? null : storeName.trim(), // Set to null if empty
     };
 
     let error;
@@ -185,7 +185,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemInfoGroupId(String(mapping.item_info_group_id));
     setItemInfoId(String(mapping.item_info_id));
     setProductId(mapping.product_id);
-    setStoreName(mapping.store_name);
+    setStoreName(mapping.store_name || ''); // Set to empty string if null for input field
   };
 
   const confirmDelete = (id: string) => {
@@ -255,8 +255,8 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
           <Input id="product-id-input" type="text" value={productId} onChange={e => setProductId(e.target.value)} disabled={loading} placeholder="ID Produk Eksternal" required />
         </div>
         <div className="md:col-span-2">
-          <Label htmlFor="store-name-input">Nama Toko (Itemku)</Label>
-          <Input id="store-name-input" type="text" value={storeName} onChange={e => setStoreName(e.target.value)} disabled={loading} placeholder="Nama Toko di Itemku" required />
+          <Label htmlFor="store-name-input">Nama Toko (Itemku) <span className="text-muted-foreground">(Opsional)</span></Label>
+          <Input id="store-name-input" type="text" value={storeName} onChange={e => setStoreName(e.target.value)} disabled={loading} placeholder="Nama Toko di Itemku" />
         </div>
         <div className="md:col-span-2 flex gap-2">
           <Button type="submit" disabled={loading} className="flex-1">
@@ -301,7 +301,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                   <TableCell>{mapping.item_info_group_id}</TableCell>
                   <TableCell>{mapping.item_info_id}</TableCell>
                   <TableCell>{mapping.product_id}</TableCell>
-                  <TableCell>{mapping.store_name}</TableCell>
+                  <TableCell>{mapping.store_name || '-'}</TableCell> {/* Tampilkan '-' jika null */}
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="icon" onClick={() => handleEdit(mapping)} disabled={loading}>
                       <Edit className="h-4 w-4" />
