@@ -52,21 +52,35 @@ serve(async (req) => {
 
     const scrapeUrl = "https://api-gateway.itemku.com/v1/product";
     
-    // Gunakan semua ID yang relevan untuk pencarian awal
-    const finalParams = {
+    // Menggunakan parameter yang lebih lengkap dari localApiServer
+    const itemkuApiParams = {
       game_id: productMapping.game_id.toString(),
       item_type_id: productMapping.item_type_id.toString(),
       item_info_group_id: productMapping.item_info_group_id.toString(),
       item_info_id: productMapping.item_info_id.toString(),
-      is_from_web: '1',
+      is_include_game: '1', 
+      is_include_item_type: '1', 
+      is_include_item_info_group: '1',
+      is_include_order_record: '1', 
+      is_from_web: '1', 
+      exclude_sharing_account_eligible: '1',
+      is_include_upselling_product: '1', 
+      use_simple_pagination: '1', 
+      per_page: '50', // Mengambil lebih banyak untuk memastikan produk kita ditemukan
+      page: '1', 
+      sort: 'cheap', // Sortir termurah, mungkin membantu menemukan produk kita lebih cepat
+      is_default_product_list: '1', 
+      is_auto_delivery_first: '1',
+      is_with_promotion: '1', 
+      is_enough_stock: '1', 
       "country_codes[]": 'ID',
-      per_page: '50', // Ambil cukup banyak untuk memastikan produk kita ditemukan
-      page: '1',
-      // Hapus parameter 'sort' dan lainnya yang lebih cocok untuk browsing umum
+      is_exclusive:'false',
+      is_include_instant_delivery:'true',
+      use_auto_delivery:'true',
     };
 
     const url = new URL(scrapeUrl);
-    url.search = new URLSearchParams(finalParams as Record<string, string>).toString();
+    url.search = new URLSearchParams(itemkuApiParams as Record<string, string>).toString();
 
     console.log('Calling Itemku API with URL:', url.toString());
 
@@ -79,9 +93,10 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('Received data from Itemku:', JSON.stringify(data, null, 2));
-    
-    const competitorList = data?.data || [];
+    // Menyesuaikan cara membaca data, karena tampaknya ada struktur data.data.data
+    const competitorList = data?.data?.data || []; 
+    console.log('Received data from Itemku (first 5 items):', JSON.stringify(competitorList.slice(0, 5), null, 2)); // Log hanya beberapa item pertama
+
     const storeName = productMapping.store_name;
     const targetProductId = productMapping.product_id;
 
