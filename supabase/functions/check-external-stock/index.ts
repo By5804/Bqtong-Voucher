@@ -30,7 +30,7 @@ serve(async (req) => {
 
     const { data: productMapping, error: fetchMappingError } = await supabaseAdmin
       .from('product_mappings')
-      .select('product_id') // Hanya butuh product_id untuk lookup
+      .select('product_id')
       .eq('platform', platform)
       .eq('nominal', nominal)
       .single();
@@ -50,16 +50,11 @@ serve(async (req) => {
 
     const scrapeUrl = "https://api-gateway.itemku.com/v1/product";
     
-    // Gunakan parameter yang lebih minimal dan terfokus untuk lookup berdasarkan product_id
+    // Menggunakan parameter yang lebih minimal dan terfokus pada product_id
     const finalParams = {
       product_id: productMapping.product_id,
       is_from_web: '1',
       "country_codes[]": 'ID',
-      is_include_game: '1',
-      is_include_item_type: '1',
-      is_include_item_info_group: '1',
-      per_page: '1', // Tetap ambil 1 untuk memastikan kita mendapatkan data produknya
-      page: '1',
     };
 
     const url = new URL(scrapeUrl);

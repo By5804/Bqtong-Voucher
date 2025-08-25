@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { HelpCircle, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast"; // Import useToast
 
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
@@ -28,7 +29,8 @@ type StockData = {
 export const StockDisplay = () => {
   const [stock, setStock] = useState<StockData[]>([]);
   const [loadingInternal, setLoadingInternal] = useState(true);
-  const [loadingExternal, setLoadingExternal] = useState(false); // Mengubah nama state loading
+  const [loadingExternal, setLoadingExternal] = useState(false);
+  const { toast } = useToast(); // Inisialisasi useToast
 
   // Fungsi untuk mengambil stok internal (berjalan otomatis saat mount)
   const fetchInternalStock = async () => {
@@ -52,7 +54,6 @@ export const StockDisplay = () => {
     }
     const internalResults = await Promise.all(initialStockPromises);
     
-    // Inisialisasi external: null untuk Itemku dan LG, 'N/A' untuk platform lain (wahyu)
     const initialData = internalResults.map(item => ({ 
       ...item, 
       external: (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
@@ -62,17 +63,16 @@ export const StockDisplay = () => {
   };
 
   // Fungsi untuk mengambil stok eksternal (dipicu oleh tombol)
-  const fetchExternalStock = async () => { // Mengubah nama fungsi
+  const fetchExternalStock = async () => {
     setLoadingExternal(true);
     
-    // Perbarui semua item Itemku dan LG ke status 'loading'
     setStock(prevStock => 
       prevStock.map(s => 
         (s.platform === "Itemku" || s.platform === "LG") ? { ...s, external: 'loading' } : s
       )
     );
 
-    const platformsToScrape: Platform[] = ["Itemku", "LG"]; // Platform yang akan discrape
+    const platformsToScrape: Platform[] = ["Itemku", "LG"];
     const externalStockPromises = stock
       .filter(item => platformsToScrape.includes(item.platform))
       .map(async (item) => {
@@ -80,15 +80,30 @@ export const StockDisplay = () => {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
             body: { platform: item.platform, nominal: item.nominal },
           });
-          if (error) throw new Error(error.message);
+
+          // --- LOGGING TAMBAHAN DI SINI ---
+          console.log(`[StockDisplay] Invoke result for ${item.platform} ${item.nominal}:`, { data, error });
+          // --- AKHIR LOGGING TAMBAHAN ---
+
+          if (error) {
+            console.error(`[StockDisplay] Frontend error for ${item.platform} ${item.nominal}:`, error);
+            // Handle specific 404 error from our edge function
+            if (error.status === 404 && error.context?.body) {
+                const errorBody = JSON.parse(error.context.body);
+                toast({ title: "Error", description: errorBody.error, variant: "destructive" });
+            } else {
+                toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${error.message}`, variant: "destructive" });
+            }
+            return { ...item, external: 'N/A' as const };
+          }
           return { ...item, external: data.stock };
-        } catch (err) {
-          console.error(`Gagal mengambil stok eksternal untuk ${item.platform} ${item.nominal}:`, err);
+        } catch (err: any) { // Tangkap error umum
+          console.error(`[StockDisplay] General catch error for ${item.platform} ${item.nominal}:`, err);
+          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${err.message}`, variant: "destructive" });
           return { ...item, external: 'N/A' as const };
         }
       });
 
-    // Perbarui state saat setiap promise selesai untuk tampilan yang lebih responsif
     for (const promise of externalStockPromises) {
         const result = await promise;
         setStock(prevStock => 
@@ -102,7 +117,7 @@ export const StockDisplay = () => {
 
   useEffect(() => {
     fetchInternalStock();
-  }, []); // Hanya panggil fetchInternalStock saat komponen mount
+  }, []);
 
   return (
     <TooltipProvider>
@@ -112,10 +127,10 @@ export const StockDisplay = () => {
         <div className="flex justify-center mb-6">
           <Button 
             onClick={fetchExternalStock} 
-            disabled={loadingExternal} // Menggunakan loadingExternal
+            disabled={loadingExternal}
             className="flex items-center gap-2"
           >
-            {loadingExternal ? ( // Menggunakan loadingExternal
+            {loadingExternal ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Eksternal...
               </>
