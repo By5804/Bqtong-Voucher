@@ -81,23 +81,50 @@ export const StockDisplay = () => {
             body: { platform: item.platform, nominal: item.nominal },
           });
           if (error) {
-            // Coba ekstrak pesan error yang lebih spesifik dari respons
             let errorMessage = error.message;
-            try {
-              const parsedError = JSON.parse(error.message);
-              if (parsedError.error) errorMessage = parsedError.error;
-            } catch (e) { /* bukan error JSON */ }
+            // Try to parse a more specific error from the Edge Function's response body
+            // Supabase functions.invoke error structure can be tricky.
+            // It might be in error.context.errors[0].message or error.data.error
+            if (error.context && error.context.errors && error.context.errors.length > 0) {
+                try {
+                    const parsedEdgeError = JSON.parse(error.context.errors[0].message);
+                    if (parsedEdgeError.error) {
+                        errorMessage = parsedEdgeError.error;
+                    }
+                } catch (e) {
+                    // Fallback to original message if parsing fails
+                }
+            } else if (error.data && typeof error.data === 'object' && 'error' in error.data) {
+                errorMessage = (error.data as { error: string }).error;
+            } else if (typeof error.message === 'string') {
+                try {
+                    const parsedMessage = JSON.parse(error.message);
+                    if (parsedMessage.error) {
+                        errorMessage = parsedMessage.error;
+                    }
+                } catch (e) {
+                    // Not a JSON string, use as is
+                }
+            }
             
             toast({
               title: `Error Stok Eksternal (${item.platform} - ${formatNominalDisplay(item.nominal)})`,
               description: errorMessage,
               variant: "destructive",
             });
-            throw new Error(errorMessage);
+            // No need to throw here, as we are handling it with toast
+            // throw new Error(errorMessage); // Removed this line
           }
           return { ...item, external: data.stock };
         } catch (err) {
           console.error(`Gagal mengambil stok eksternal untuk ${item.platform} ${item.nominal}:`, err);
+          // This catch block handles errors that occur *before* the invoke call or if the invoke call itself fails in an unexpected way
+          // The error from invoke is handled in the if (error) block above.
+          toast({
+            title: `Error Stok Eksternal (${item.platform} - ${formatNominalDisplay(item.nominal)})`,
+            description: `Terjadi kesalahan tak terduga: ${err instanceof Error ? err.message : String(err)}`,
+            variant: "destructive",
+          });
           return { ...item, external: 'N/A' as const };
         }
       });
