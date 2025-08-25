@@ -52,7 +52,6 @@ serve(async (req) => {
 
     const scrapeUrl = "https://api-gateway.itemku.com/v1/product";
     
-    // Menggunakan parameter yang lebih lengkap dari localApiServer
     const itemkuApiParams = {
       game_id: productMapping.game_id.toString(),
       item_type_id: productMapping.item_type_id.toString(),
@@ -66,9 +65,9 @@ serve(async (req) => {
       exclude_sharing_account_eligible: '1',
       is_include_upselling_product: '1', 
       use_simple_pagination: '1', 
-      per_page: '50', // Mengambil lebih banyak untuk memastikan produk kita ditemukan
+      per_page: '50', 
       page: '1', 
-      sort: 'cheap', // Sortir termurah, mungkin membantu menemukan produk kita lebih cepat
+      sort: 'cheap', 
       is_default_product_list: '1', 
       is_auto_delivery_first: '1',
       is_with_promotion: '1', 
@@ -93,31 +92,35 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    // Menyesuaikan cara membaca data, karena tampaknya ada struktur data.data.data
     const competitorList = data?.data?.data || []; 
-    console.log('Received data from Itemku (first 5 items):', JSON.stringify(competitorList.slice(0, 5), null, 2)); // Log hanya beberapa item pertama
+    console.log('Received data from Itemku (first 5 items):', JSON.stringify(competitorList.slice(0, 5), null, 2)); 
 
-    const storeName = productMapping.store_name;
+    const storeName = productMapping.store_name; // Ini bisa null
     const targetProductId = productMapping.product_id;
 
-    // Filter hasil untuk menemukan produk kita berdasarkan product_id,
-    // dan opsional berdasarkan store_name jika disediakan.
     const myProduct = competitorList.find((p: any) => {
       const matchesProductId = p.id?.toString() === targetProductId;
-      // Hanya cocokkan store_name jika storeName tidak null atau string kosong
-      const matchesStoreName = storeName 
-        ? p.seller?.shop_name?.toLowerCase() === storeName.toLowerCase() 
-        : true; 
+      
+      let matchesStoreName = true; // Default ke true jika storeName tidak menjadi faktor
+      if (storeName) { // Jika storeName disediakan di mapping kita
+        if (p.seller?.shop_name) { // Dan produk Itemku memiliki shop_name
+          matchesStoreName = p.seller.shop_name.toLowerCase() === storeName.toLowerCase();
+        } else { // Jika storeName disediakan di mapping kita, tetapi produk Itemku tidak memiliki seller.shop_name
+          matchesStoreName = false; // Produk ini tidak cocok dengan storeName yang dibutuhkan
+        }
+      }
 
+      console.log(`Checking product id=${p.id}, shop_name=${p.seller?.shop_name || 'N/A'}: matchesProductId=${matchesProductId}, matchesStoreName=${matchesStoreName}`);
+      
       return matchesProductId && matchesStoreName;
     });
 
     let stock = 0;
     if (myProduct) {
       stock = myProduct.stock ?? 0;
-      console.log(`Found product for store '${storeName}' with product_id '${targetProductId}'. Extracted stock:`, stock);
+      console.log(`Found product for store '${storeName || 'N/A'}' with product_id '${targetProductId}'. Extracted stock:`, stock);
     } else {
-      console.warn(`Product for store '${storeName}' and product_id '${targetProductId}' not found in Itemku response.`);
+      console.warn(`Product for store '${storeName || 'N/A'}' and product_id '${targetProductId}' not found in Itemku response.`);
       stock = 0;
     }
 
@@ -126,7 +129,7 @@ serve(async (req) => {
       status: 200,
     });
 
-  } catch (error: any) { // Tangkap error umum dan log stack trace
+  } catch (error: any) { 
     console.error('Edge function caught an error:', error.message, error.stack);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
