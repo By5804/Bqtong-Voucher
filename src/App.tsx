@@ -10,16 +10,16 @@ import InputVouchersPage from "./pages/InputVouchers";
 import MoveVouchersPage from "./pages/MoveVouchers";
 import ManualStockAdjustmentPage from "./pages/ManualStockAdjustment";
 import SoldVouchersPage from "./pages/SoldVouchersPage";
-import React from "react"; // Import React untuk Fragment
+// import React from "react"; // React sudah diimpor secara implisit untuk JSX, Fragment tidak perlu diimpor secara eksplisit jika menggunakan <>
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <React.Fragment> {/* Membungkus semua anak dalam satu Fragment */}
-        <Toaster />
-        <Sonner />
+  <> {/* Menggunakan React Fragment implisit sebagai root */}
+    <Toaster />
+    <Sonner />
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -32,9 +32,9 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </React.Fragment> {/* Menutup Fragment */}
-    </TooltipProvider>
-  </QueryClientProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </>
 );
 
 export default App;
