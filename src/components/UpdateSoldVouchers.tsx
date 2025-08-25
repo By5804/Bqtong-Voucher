@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,23 @@ import { Database } from "@/integrations/supabase/types";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const nominalOptions = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"]; // Menambahkan 100 dan 200
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+
+const formatNominalDisplay = (nominal: string) => {
+  const numNominal = parseInt(nominal, 10);
+  if (numNominal === 100) return "100 RBX";
+  if (numNominal === 200) return "200 RBX";
+  return numNominal.toLocaleString('id-ID') + 'K';
+};
+
+const getFilteredNominalOptions = (platform: Platform | '') => {
+  if (platform === "Itemku") {
+    return ALL_NOMINAL_OPTIONS_STR;
+  } else if (platform === "LG" || platform === "wahyu") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+  }
+  return [];
+};
 
 export const UpdateSoldVouchers = () => {
   const [platform, setPlatform] = useState<Platform | ''>('');
@@ -19,6 +35,18 @@ export const UpdateSoldVouchers = () => {
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+
+  useEffect(() => {
+    // Reset nominal if the selected platform changes and the current nominal is no longer valid
+    if (nominal && !filteredNominalOptions.includes(nominal)) {
+      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
+    } else if (!nominal && filteredNominalOptions.length > 0) {
+      // Set a default if no nominal is selected and options are available
+      setNominal(filteredNominalOptions[0]);
+    }
+  }, [platform, nominal, filteredNominalOptions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,12 +91,10 @@ export const UpdateSoldVouchers = () => {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Nominal</label>
-            <Select value={nominal} onValueChange={setNominal} required>
+            <Select value={nominal} onValueChange={setNominal} required disabled={!platform}>
               <SelectTrigger><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="100">100 RBX</SelectItem>
-                <SelectItem value="200">200 RBX</SelectItem>
-                {nominalOptions.filter(n => parseInt(n, 10) >= 50000).map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
+                {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +12,23 @@ import { Tag } from "lucide-react";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const nominalOptions = ["50000", "65000", "100000", "200000", "300000", "500000"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+
+const formatNominalDisplay = (nominal: string) => {
+  const numNominal = parseInt(nominal, 10);
+  if (numNominal === 100) return "100 RBX";
+  if (numNominal === 200) return "200 RBX";
+  return numNominal.toLocaleString('id-ID') + 'K';
+};
+
+const getFilteredNominalOptions = (platform: Platform | '') => {
+  if (platform === "Itemku") {
+    return ALL_NOMINAL_OPTIONS_STR;
+  } else if (platform === "LG" || platform === "wahyu") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+  }
+  return [];
+};
 
 const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   const [platform, setPlatform] = useState<Platform | ''>('');
@@ -21,6 +36,18 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+
+  useEffect(() => {
+    // Reset nominal if the selected platform changes and the current nominal is no longer valid
+    if (nominal && !filteredNominalOptions.includes(nominal)) {
+      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
+    } else if (!nominal && filteredNominalOptions.length > 0) {
+      // Set a default if no nominal is selected and options are available
+      setNominal(filteredNominalOptions[0]);
+    }
+  }, [platform, nominal, filteredNominalOptions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,10 +87,10 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       </div>
       <div>
         <label className="block text-sm font-medium mb-1">Nominal</label>
-        <Select value={nominal} onValueChange={setNominal} required>
+        <Select value={nominal} onValueChange={setNominal} required disabled={!platform}>
           <SelectTrigger><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
           <SelectContent>
-            {nominalOptions.map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
+            {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

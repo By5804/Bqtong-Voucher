@@ -9,12 +9,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { subDays, formatISO } from "date-fns";
-import { Trash2, ArrowLeft } from "lucide-react"; // Import ArrowLeft
+import { Trash2, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
@@ -22,7 +22,24 @@ type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['sourc
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
 const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia"];
-const nominalOptions = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"]; // Menambahkan 100 dan 200
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+
+const formatNominalDisplay = (nominal: string | number) => {
+  const numNominal = typeof nominal === 'string' ? parseInt(nominal, 10) : nominal;
+  if (numNominal === 100) return "100 RBX";
+  if (numNominal === 200) return "200 RBX";
+  return numNominal.toLocaleString('id-ID');
+};
+
+const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') => {
+  if (platformFilter === "Itemku") {
+    return ALL_NOMINAL_OPTIONS_STR;
+  } else if (platformFilter === "LG" || platformFilter === "wahyu") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+  }
+  // If 'all' platforms are selected, show all nominals for filtering
+  return ALL_NOMINAL_OPTIONS_STR;
+};
 
 export default function VoucherPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -30,7 +47,7 @@ export default function VoucherPage() {
   const [selectedVouchers, setSelectedVouchers] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate(); // Inisialisasi useNavigate
+  const navigate = useNavigate();
   
   const [filters, setFilters] = useState({
     searchDate: '',
@@ -44,6 +61,15 @@ export default function VoucherPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalVouchers, setTotalVouchers] = useState(0);
+
+  const filteredNominalOptionsForFilter = useMemo(() => getFilteredNominalOptionsForFilter(filters.platform), [filters.platform]);
+
+  useEffect(() => {
+    // Reset nominal filter if platform changes and current nominal is no longer valid
+    if (filters.nominal !== 'all' && !filteredNominalOptionsForFilter.includes(filters.nominal)) {
+      setFilters(prev => ({ ...prev, nominal: 'all' }));
+    }
+  }, [filters.platform, filters.nominal, filteredNominalOptionsForFilter]);
 
   const fetchVouchers = useCallback(async () => {
     setLoading(true);
@@ -189,13 +215,13 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="nominal">Nominal</Label>
-                <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)}>
+                <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)} disabled={!filters.platform}>
                   <SelectTrigger id="nominal"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Nominal</SelectItem>
-                    <SelectItem value="100">100 RBX</SelectItem>
-                    <SelectItem value="200">200 RBX</SelectItem>
-                    {nominalOptions.filter(n => parseInt(n, 10) >= 50000).map(n => <SelectItem key={n} value={n}>{parseInt(n, 10).toLocaleString('id-ID')}</SelectItem>)}
+                    {filteredNominalOptionsForFilter.map(n => (
+                      <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -244,7 +270,7 @@ export default function VoucherPage() {
                       <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
                       <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {voucher.nominal === 100 ? "100 RBX" : voucher.nominal === 200 ? "200 RBX" : voucher.nominal.toLocaleString('id-ID')}
+                        {formatNominalDisplay(voucher.nominal)}
                       </TableCell>
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>

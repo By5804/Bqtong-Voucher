@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,12 +10,30 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { ArrowLeft } from "lucide-react"; // Import ArrowLeft
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
+
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+
+const formatNominalDisplay = (nominal: string) => {
+  const numNominal = parseInt(nominal, 10);
+  if (numNominal === 100) return "100 RBX";
+  if (numNominal === 200) return "200 RBX";
+  return numNominal.toLocaleString('id-ID') + 'K';
+};
+
+const getFilteredNominalOptions = (platform: Platform | '') => {
+  if (platform === "Itemku") {
+    return ALL_NOMINAL_OPTIONS_STR;
+  } else if (platform === "LG" || platform === "wahyu") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+  }
+  return [];
+};
 
 // Ukuran batch untuk setiap request ke database
 const CHUNK_SIZE = 100;
@@ -25,11 +43,23 @@ const InputVouchersPage = () => {
   const [codes, setCodes] = useState("");
   const [platform, setPlatform] = useState<Platform>("LG");
   const [source, setSource] = useState<Source | ''>('');
-  const [nominal, setNominal] = useState("50000");
+  const [nominal, setNominal] = useState("50000"); // Default for LG
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
-  const navigate = useNavigate(); // Inisialisasi useNavigate
+  const navigate = useNavigate();
+
+  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+
+  useEffect(() => {
+    // Reset nominal if the selected platform changes and the current nominal is no longer valid
+    if (nominal && !filteredNominalOptions.includes(nominal)) {
+      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
+    } else if (!nominal && filteredNominalOptions.length > 0) {
+      // Set a default if no nominal is selected and options are available
+      setNominal(filteredNominalOptions[0]);
+    }
+  }, [platform, nominal, filteredNominalOptions]);
 
   const voucherCount = useMemo(() => {
     if (!codes.trim()) return 0;
@@ -40,6 +70,10 @@ const InputVouchersPage = () => {
     e.preventDefault();
     if (voucherCount === 0) {
       toast({ title: "Error", description: "Kode voucher tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
+    if (!platform || !nominal) {
+      toast({ title: "Error", description: "Harap pilih Platform dan Nominal.", variant: "destructive" });
       return;
     }
 
@@ -126,17 +160,12 @@ const InputVouchersPage = () => {
               </div>
               <div>
                 <label htmlFor="nominal-select" className="block text-sm font-medium mb-2 text-left">Nominal</label>
-                <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading}>
+                <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading || !platform}>
                   <SelectTrigger id="nominal-select"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="100">100 RBX</SelectItem>
-                    <SelectItem value="200">200 RBX</SelectItem>
-                    <SelectItem value="50000">50K</SelectItem>
-                    <SelectItem value="65000">65K</SelectItem>
-                    <SelectItem value="100000">100K</SelectItem>
-                    <SelectItem value="200000">200K</SelectItem>
-                    <SelectItem value="300000">300K</SelectItem>
-                    <SelectItem value="500000">500K</SelectItem>
+                    {filteredNominalOptions.map(n => (
+                      <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -178,7 +207,7 @@ const InputVouchersPage = () => {
                 </p>
               </div>
             )}
-            <Button type="submit" disabled={loading || voucherCount === 0} className="w-full">
+            <Button type="submit" disabled={loading || voucherCount === 0 || !platform || !nominal} className="w-full">
               {loading ? `Sedang Memproses...` : `Simpan ${voucherCount > 0 ? `${voucherCount} ` : ''}Voucher`}
             </Button>
           </form>

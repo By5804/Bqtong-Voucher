@@ -7,7 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const nominalOptions = [100, 200, 50000, 65000, 100000, 200000, 300000, 500000]; // Menambahkan 100 dan 200
+const ALL_NOMINAL_OPTIONS = [100, 200, 50000, 65000, 100000, 200000, 300000, 500000];
+
+const formatNominalDisplay = (nominal: number) => {
+  if (nominal === 100) return "100 RBX";
+  if (nominal === 200) return "200 RBX";
+  return (nominal / 1000).toLocaleString('id-ID') + 'K';
+};
 
 type DetailedStockData = {
   platform: Platform;
@@ -25,7 +31,11 @@ export const StockDisplay = () => {
       const allStockPromises: Promise<DetailedStockData>[] = [];
 
       for (const platform of platformOptions) {
-        for (const nominal of nominalOptions) {
+        const nominalsForPlatform = platform === "Itemku" 
+          ? ALL_NOMINAL_OPTIONS 
+          : ALL_NOMINAL_OPTIONS.filter(n => n >= 50000); // Filter out 100, 200 for LG/wahyu
+
+        for (const nominal of nominalsForPlatform) {
           const promise = supabase
             .from("vouchers")
             .select("*", { count: "exact", head: true })
@@ -56,7 +66,7 @@ export const StockDisplay = () => {
                   <CardTitle><Skeleton className="h-6 w-24" /></CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {nominalOptions.map((n) => (
+                  {ALL_NOMINAL_OPTIONS.filter(n => p === "Itemku" || n >= 50000).map((n) => (
                     <div key={`${p}-${n}`} className="flex justify-between items-center">
                       <span><Skeleton className="h-4 w-16" /></span>
                       <span><Skeleton className="h-4 w-8" /></span>
@@ -77,7 +87,7 @@ export const StockDisplay = () => {
                     .map(({ nominal, count }) => (
                       <div key={`${platform}-${nominal}`} className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">
-                          {nominal === 100 ? "100 RBX" : nominal === 200 ? "200 RBX" : (nominal / 1000).toLocaleString('id-ID') + 'K'}
+                          {formatNominalDisplay(nominal)}
                         </span>
                         <span className="text-lg font-semibold">{count}</span>
                       </div>
