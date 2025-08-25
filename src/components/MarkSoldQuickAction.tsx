@@ -112,7 +112,9 @@ export const MarkSoldQuickAction = () => {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="default">
-          <Tag className="mr-2 h-4 w-4" /> Tandai Terjual
+          <span className="flex items-center"> {/* Membungkus ikon dan teks dalam satu span */}
+            <Tag className="mr-2 h-4 w-4" /> Tandai Terjual
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
