@@ -5,8 +5,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
-import { PlusCircle, ListChecks } from "lucide-react"; // Import ListChecks icon
-// import { SoldOutDisplay } from "@/components/SoldOutDisplay"; // Hapus import ini
+import { PlusCircle, ListChecks } from "lucide-react";
 
 const Index = () => {
   return (
@@ -22,16 +21,15 @@ const Index = () => {
       
       <div className="text-center flex flex-col items-center gap-4">
         <p className="text-lg mb-4">Aksi Cepat:</p>
-        {/* <SoldOutDisplay /> -- Dihapus dan diganti dengan halaman terpisah */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4">
           <Button asChild>
-            <Link to="/vouchers">Lihat & Hapus Voucher</Link>
+            <Link to="/vouchers"><span>Lihat & Hapus Voucher</span></Link> {/* Dibungkus dengan span */}
           </Button>
           <Button asChild variant="outline">
-            <Link to="/input-vouchers">Input Voucher Massal</Link>
+            <Link to="/input-vouchers"><span>Input Voucher Massal</span></Link> {/* Dibungkus dengan span */}
           </Button>
           <Button asChild variant="secondary">
-            <Link to="/move-vouchers">Pindahkan Voucher</Link>
+            <Link to="/move-vouchers"><span>Pindahkan Voucher</span></Link> {/* Dibungkus dengan span */}
           </Button>
           <MarkSoldQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
@@ -41,7 +39,7 @@ const Index = () => {
               </span>
             </Link>
           </Button>
-          <Button asChild variant="info" className="bg-blue-600 hover:bg-blue-700 text-white"> {/* Tombol baru */}
+          <Button asChild variant="info" className="bg-blue-600 hover:bg-blue-700 text-white">
             <Link to="/sold-vouchers">
               <span className="flex items-center">
                 <ListChecks className="mr-2 h-4 w-4" /> Data Voucher Terjual
