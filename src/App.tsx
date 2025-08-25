@@ -10,7 +10,7 @@ import VoucherPage from "./pages/vouchers";
 import InputVouchersPage from "./pages/InputVouchers";
 import MoveVouchersPage from "./pages/MoveVouchers";
 import ManualStockAdjustmentPage from "./pages/ManualStockAdjustment";
-import SoldVouchersPage from "./pages/SoldVouchersPage";
+// import SoldVouchersPage from "./pages/SoldVouchersPage"; // Dihapus
 
 const queryClient = new QueryClient();
 
@@ -27,7 +27,7 @@ const App = () => (
             <Route path="/input-vouchers" element={<InputVouchersPage />} />
             <Route path="/move-vouchers" element={<MoveVouchersPage />} />
             <Route path="/manual-stock-adjustment" element={<ManualStockAdjustmentPage />} />
-            <Route path="/sold-vouchers" element={<SoldVouchersPage />} />
+            {/* <Route path="/sold-vouchers" element={<SoldVouchersPage />} /> */} {/* Rute dihapus */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
