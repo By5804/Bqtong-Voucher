@@ -41,7 +41,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [itemInfoGroupId, setItemInfoGroupId] = useState<string>('');
   const [itemInfoId, setItemInfoId] = useState<string>('');
   const [productId, setProductId] = useState<string>('');
-  const [storeName, setStoreName] = useState<string>(''); // State baru untuk store_name
+  const [storeName, setStoreName] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<ProductMapping[]>([]);
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
@@ -88,7 +88,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemInfoGroupId('');
     setItemInfoId('');
     setProductId('');
-    setStoreName(''); // Reset store_name
+    setStoreName('');
     setEditingMapping(null);
   };
 
@@ -109,13 +109,38 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       isNaN(parsedItemInfoGroupId) ||
       isNaN(parsedItemInfoId) ||
       !productId.trim() ||
-      !storeName.trim() // Validasi store_name tidak boleh kosong
+      !storeName.trim()
     ) {
       toast({ title: "Error", description: "Harap isi semua field wajib dengan benar.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
+
+    // --- START: Duplicate Check Logic ---
+    const { data: existingMappings, error: checkError } = await supabase
+      .from('product_mappings')
+      .select('id')
+      .eq('platform', platform)
+      .eq('nominal', parsedNominal);
+
+    if (checkError) {
+      toast({ title: "Error", description: `Gagal memeriksa duplikasi mapping: ${checkError.message}`, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
+    if (existingMappings && existingMappings.length > 0) {
+      const isEditingCurrent = editingMapping && existingMappings.some(m => m.id === editingMapping.id);
+
+      if (!editingMapping || !isEditingCurrent) {
+        toast({ title: "Error", description: "Mapping untuk Platform dan Nominal ini sudah ada.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+    }
+    // --- END: Duplicate Check Logic ---
+
     const payload = {
       platform,
       nominal: parsedNominal,
@@ -124,7 +149,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       item_info_group_id: parsedItemInfoGroupId,
       item_info_id: parsedItemInfoId,
       product_id: productId.trim(),
-      store_name: storeName.trim(), // Sertakan store_name dalam payload
+      store_name: storeName.trim(),
     };
 
     let error;
@@ -160,7 +185,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemInfoGroupId(String(mapping.item_info_group_id));
     setItemInfoId(String(mapping.item_info_id));
     setProductId(mapping.product_id);
-    setStoreName(mapping.store_name); // Set store_name dari mapping
+    setStoreName(mapping.store_name);
   };
 
   const confirmDelete = (id: string) => {
@@ -262,7 +287,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                 <TableHead>Item Info Group ID</TableHead>
                 <TableHead>Item Info ID</TableHead>
                 <TableHead>Product ID</TableHead>
-                <TableHead>Nama Toko</TableHead> {/* Kolom baru */}
+                <TableHead>Nama Toko</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -276,7 +301,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                   <TableCell>{mapping.item_info_group_id}</TableCell>
                   <TableCell>{mapping.item_info_id}</TableCell>
                   <TableCell>{mapping.product_id}</TableCell>
-                  <TableCell>{mapping.store_name}</TableCell> {/* Tampilkan store_name */}
+                  <TableCell>{mapping.store_name}</TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="icon" onClick={() => handleEdit(mapping)} disabled={loading}>
                       <Edit className="h-4 w-4" />
