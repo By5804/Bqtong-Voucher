@@ -42,8 +42,9 @@ export type Database = {
           item_type_id: number;
           item_info_group_id: number;
           item_info_id: number;
-          product_id: string; // Diubah menjadi non-nullable
+          product_id: string;
           created_at: string;
+          store_name: string; // Kolom baru
         };
         Insert: {
           id?: string;
@@ -53,8 +54,9 @@ export type Database = {
           item_type_id: number;
           item_info_group_id: number;
           item_info_id: number;
-          product_id: string; // Diubah menjadi wajib
+          product_id: string;
           created_at?: string;
+          store_name?: string; // Kolom baru
         };
         Update: {
           id?: string;
@@ -64,8 +66,9 @@ export type Database = {
           item_type_id?: number;
           item_info_group_id?: number;
           item_info_id?: number;
-          product_id?: string; // Diubah menjadi string non-nullable
+          product_id?: string;
           created_at?: string;
+          store_name?: string; // Kolom baru
         };
       };
     };
