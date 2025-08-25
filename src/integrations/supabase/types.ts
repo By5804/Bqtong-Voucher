@@ -10,6 +10,7 @@ export type Database = {
           code: string;
           platform: "LG" | "wahyu" | "Itemku";
           source: "Paygift website" | "Paygift Sales" | "Tokopedia" | null;
+          status: 'available' | 'sold'; // Kolom baru
         };
         Insert: {
           id?: string;
@@ -19,6 +20,7 @@ export type Database = {
           code: string;
           platform: "LG" | "wahyu" | "Itemku";
           source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | null;
+          status?: 'available' | 'sold'; // Kolom baru
         };
         Update: {
           id?: string;
@@ -28,6 +30,7 @@ export type Database = {
           code?: string;
           platform?: "LG" | "wahyu" | "Itemku";
           source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | null;
+          status?: 'available' | 'sold'; // Kolom baru
         };
       };
     };
