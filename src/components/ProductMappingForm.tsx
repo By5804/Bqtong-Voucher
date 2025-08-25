@@ -40,7 +40,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [itemTypeId, setItemTypeId] = useState<string>('');
   const [itemInfoGroupId, setItemInfoGroupId] = useState<string>('');
   const [itemInfoId, setItemInfoId] = useState<string>('');
-  const [productId, setProductId] = useState<string>(''); // State baru untuk product_id
+  const [productId, setProductId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<ProductMapping[]>([]);
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
@@ -86,26 +86,40 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemTypeId('');
     setItemInfoGroupId('');
     setItemInfoId('');
-    setProductId(''); // Reset product_id
+    setProductId('');
     setEditingMapping(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!platform || !nominal || !gameId || !itemTypeId || !itemInfoGroupId || !itemInfoId) {
-      toast({ title: "Error", description: "Harap isi semua field yang wajib (Platform, Nominal, Game ID, Item Type ID, Item Info Group ID, Item Info ID).", variant: "destructive" });
+
+    const parsedNominal = parseInt(nominal, 10);
+    const parsedGameId = parseInt(gameId, 10);
+    const parsedItemTypeId = parseInt(itemTypeId, 10);
+    const parsedItemInfoGroupId = parseInt(itemInfoGroupId, 10);
+    const parsedItemInfoId = parseInt(itemInfoId, 10);
+
+    if (
+      !platform ||
+      isNaN(parsedNominal) ||
+      isNaN(parsedGameId) ||
+      isNaN(parsedItemTypeId) ||
+      isNaN(parsedItemInfoGroupId) ||
+      isNaN(parsedItemInfoId)
+    ) {
+      toast({ title: "Error", description: "Harap isi semua field wajib dengan angka yang valid.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     const payload = {
       platform,
-      nominal: parseInt(nominal, 10),
-      game_id: parseInt(gameId, 10),
-      item_type_id: parseInt(itemTypeId, 10),
-      item_info_group_id: parseInt(itemInfoGroupId, 10),
-      item_info_id: parseInt(itemInfoId, 10),
-      product_id: productId || null, // Sertakan product_id
+      nominal: parsedNominal,
+      game_id: parsedGameId,
+      item_type_id: parsedItemTypeId,
+      item_info_group_id: parsedItemInfoGroupId,
+      item_info_id: parsedItemInfoId,
+      product_id: productId || null,
     };
 
     let error;
@@ -140,7 +154,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemTypeId(String(mapping.item_type_id));
     setItemInfoGroupId(String(mapping.item_info_group_id));
     setItemInfoId(String(mapping.item_info_id));
-    setProductId(mapping.product_id || ''); // Set product_id saat edit
+    setProductId(mapping.product_id || '');
   };
 
   const confirmDelete = (id: string) => {
@@ -237,7 +251,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                 <TableHead>Item Type ID</TableHead>
                 <TableHead>Item Info Group ID</TableHead>
                 <TableHead>Item Info ID</TableHead>
-                <TableHead>Product ID</TableHead> {/* Kolom baru */}
+                <TableHead>Product ID</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -250,7 +264,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                   <TableCell>{mapping.item_type_id}</TableCell>
                   <TableCell>{mapping.item_info_group_id}</TableCell>
                   <TableCell>{mapping.item_info_id}</TableCell>
-                  <TableCell>{mapping.product_id || '-'}</TableCell> {/* Tampilkan product_id */}
+                  <TableCell>{mapping.product_id || '-'}</TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="icon" onClick={() => handleEdit(mapping)} disabled={loading}>
                       <Edit className="h-4 w-4" />
