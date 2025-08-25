@@ -34,9 +34,11 @@ const getFilteredNominalOptions = (platform: Platform | '') => {
 const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   const [platform, setPlatform] = useState<Platform | ''>('');
   const [nominal, setNominal] = useState<string | ''>('');
-  const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [availableStock, setAvailableStock] = useState<number | null>(null);
+  const [remainingStockInput, setRemainingStockInput] = useState<string>(''); // User input for stock on platform
+  const [quantityToMarkSold, setQuantityToMarkSold] = useState<number>(1); // The actual quantity to submit
+  const [isQuantityCalculated, setIsQuantityCalculated] = useState(false); // To control readOnly state
   const { toast } = useToast();
 
   const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
@@ -72,23 +74,69 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       // Set a default if no nominal is selected and options are available
       setNominal(filteredNominalOptions[0]);
     }
-    fetchAvailableStock(); // Fetch stock when platform or nominal changes
+    fetchAvailableStock();
+    setRemainingStockInput(''); // Clear remaining stock input on platform/nominal change
+    setQuantityToMarkSold(1); // Reset quantity to 1
+    setIsQuantityCalculated(false); // Reset calculation status
   }, [platform, nominal, filteredNominalOptions, fetchAvailableStock]);
+
+  useEffect(() => {
+    if (availableStock !== null && remainingStockInput !== '') {
+      const parsedRemaining = parseInt(remainingStockInput, 10);
+      if (!isNaN(parsedRemaining) && parsedRemaining >= 0) {
+        const calculatedQuantity = availableStock - parsedRemaining;
+        if (calculatedQuantity >= 0) {
+          setQuantityToMarkSold(calculatedQuantity);
+          setIsQuantityCalculated(true);
+        } else {
+          toast({
+            title: "Peringatan",
+            description: "Sisa stok di platform lebih besar dari stok di database. Harap periksa kembali.",
+            variant: "destructive"
+          });
+          setQuantityToMarkSold(0);
+          setIsQuantityCalculated(true);
+        }
+      } else {
+        // Invalid remainingStockInput, revert to manual quantity
+        setIsQuantityCalculated(false);
+      }
+    } else if (remainingStockInput === '') {
+      // If remainingStockInput is cleared, allow manual input for quantityToMarkSold
+      setIsQuantityCalculated(false);
+      // Do not reset quantityToMarkSold here, let it retain its last manual value or default to 1 if it was previously calculated.
+      if (isQuantityCalculated) { // Only reset if it was previously calculated
+        setQuantityToMarkSold(1);
+      }
+    }
+  }, [availableStock, remainingStockInput, toast, isQuantityCalculated]);
+
+  const handleQuantityChange = (value: number) => {
+    // If user manually changes quantityToMarkSold, clear remainingStockInput and disable calculation
+    setRemainingStockInput('');
+    setIsQuantityCalculated(false);
+    setQuantityToMarkSold(value);
+  };
+
+  const handleRemainingStockInputChange = (value: string) => {
+    setRemainingStockInput(value);
+    // The useEffect above will handle updating quantityToMarkSold and isQuantityCalculated
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!platform || !nominal || quantity <= 0) {
-      toast({ title: "Error", description: "Harap isi semua field dengan benar.", variant: "destructive" });
+    if (!platform || !nominal || quantityToMarkSold <= 0) {
+      toast({ title: "Error", description: "Harap isi semua field dengan benar dan pastikan jumlah terjual valid.", variant: "destructive" });
       return;
     }
-    if (availableStock !== null && quantity > availableStock) {
-      toast({ title: "Error", description: `Jumlah terjual (${quantity}) melebihi stok tersedia (${availableStock}).`, variant: "destructive" });
+    if (availableStock !== null && quantityToMarkSold > availableStock) {
+      toast({ title: "Error", description: `Jumlah terjual (${quantityToMarkSold}) melebihi stok tersedia (${availableStock}).`, variant: "destructive" });
       return;
     }
     setLoading(true);
 
     const { data, error } = await supabase.functions.invoke('mark-vouchers-sold', {
-      body: { platform, nominal: parseInt(nominal, 10), quantity },
+      body: { platform, nominal: parseInt(nominal, 10), quantity: quantityToMarkSold },
     });
 
     if (error) {
@@ -98,14 +146,16 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       // Reset form and close dialog
       setPlatform('');
       setNominal('');
-      setQuantity(1);
-      setAvailableStock(null); // Reset available stock
+      setRemainingStockInput('');
+      setQuantityToMarkSold(1);
+      setAvailableStock(null);
+      setIsQuantityCalculated(false);
       onClose(); // Close the dialog after successful update
     }
     setLoading(false);
   };
 
-  const isSubmitDisabled = loading || !platform || !nominal || quantity <= 0 || (availableStock !== null && quantity > availableStock);
+  const isSubmitDisabled = loading || !platform || !nominal || quantityToMarkSold <= 0 || (availableStock !== null && quantityToMarkSold > availableStock);
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -129,15 +179,30 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       </div>
       <div className="md:col-span-2">
         <Label className="block text-sm font-medium mb-1">
-          Jumlah Terjual {availableStock !== null && `(Stok Tersedia: ${availableStock})`}
+          Stok Tersedia di Database: {availableStock !== null ? availableStock : 'Memuat...'}
         </Label>
+      </div>
+      <div className="md:col-span-2">
+        <Label className="block text-sm font-medium mb-1">Sisa Stok di Platform (Opsional)</Label>
         <Input 
           type="number" 
-          value={quantity} 
-          onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} 
-          min="1" 
-          required 
+          value={remainingStockInput} 
+          onChange={e => handleRemainingStockInputChange(e.target.value)} 
+          min="0" 
+          placeholder="Masukkan sisa stok di platform"
           disabled={loading} 
+        />
+      </div>
+      <div className="md:col-span-2">
+        <Label className="block text-sm font-medium mb-1">Jumlah Terjual</Label>
+        <Input 
+          type="number" 
+          value={quantityToMarkSold} 
+          onChange={e => handleQuantityChange(Math.max(0, parseInt(e.target.value) || 0))} 
+          min="0" 
+          required 
+          disabled={loading || isQuantityCalculated} // Disable if calculated
+          readOnly={isQuantityCalculated} // Make readOnly if calculated
         />
       </div>
       <Button type="submit" disabled={isSubmitDisabled} className="w-full md:col-span-2">
