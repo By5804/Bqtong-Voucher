@@ -27,7 +27,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch product mapping from the database
+    // Fetch product mapping from the database for the given platform and nominal
     const { data: productMapping, error: fetchMappingError } = await supabaseAdmin
       .from('product_mappings')
       .select('game_id, item_type_id, item_info_group_id, item_info_id')
@@ -45,13 +45,7 @@ serve(async (req) => {
       throw fetchMappingError;
     }
 
-    if (platform !== "Itemku") {
-       return new Response(JSON.stringify({ stock: 'N/A', message: 'API Scraper belum diimplementasikan untuk platform ini.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    }
-
+    // Proceed to scrape Itemku API using the fetched product mapping
     const scrapeUrl = "https://api-gateway.itemku.com/v1/product";
     const baseParams = {
         is_include_game: '1', is_include_item_type: '1', is_include_item_info_group: '1',
