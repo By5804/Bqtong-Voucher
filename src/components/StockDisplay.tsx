@@ -7,7 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { HelpCircle, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
@@ -29,8 +28,7 @@ type StockData = {
 export const StockDisplay = () => {
   const [stock, setStock] = useState<StockData[]>([]);
   const [loadingInternal, setLoadingInternal] = useState(true);
-  const [loadingExternal, setLoadingExternal] = useState(false);
-  const { toast } = useToast();
+  const [loadingExternal, setLoadingExternal] = useState(false); // Mengubah nama state loading
 
   // Fungsi untuk mengambil stok internal (berjalan otomatis saat mount)
   const fetchInternalStock = async () => {
@@ -54,6 +52,7 @@ export const StockDisplay = () => {
     }
     const internalResults = await Promise.all(initialStockPromises);
     
+    // Inisialisasi external: null untuk Itemku dan LG, 'N/A' untuk platform lain (wahyu)
     const initialData = internalResults.map(item => ({ 
       ...item, 
       external: (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
@@ -63,16 +62,17 @@ export const StockDisplay = () => {
   };
 
   // Fungsi untuk mengambil stok eksternal (dipicu oleh tombol)
-  const fetchExternalStock = async () => {
+  const fetchExternalStock = async () => { // Mengubah nama fungsi
     setLoadingExternal(true);
     
+    // Perbarui semua item Itemku dan LG ke status 'loading'
     setStock(prevStock => 
       prevStock.map(s => 
         (s.platform === "Itemku" || s.platform === "LG") ? { ...s, external: 'loading' } : s
       )
     );
 
-    const platformsToScrape: Platform[] = ["Itemku", "LG"];
+    const platformsToScrape: Platform[] = ["Itemku", "LG"]; // Platform yang akan discrape
     const externalStockPromises = stock
       .filter(item => platformsToScrape.includes(item.platform))
       .map(async (item) => {
@@ -80,55 +80,15 @@ export const StockDisplay = () => {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
             body: { platform: item.platform, nominal: item.nominal },
           });
-          if (error) {
-            let errorMessage = error.message;
-            // Try to parse a more specific error from the Edge Function's response body
-            // Supabase functions.invoke error structure can be tricky.
-            // It might be in error.context.errors[0].message or error.data.error
-            if (error.context && error.context.errors && error.context.errors.length > 0) {
-                try {
-                    const parsedEdgeError = JSON.parse(error.context.errors[0].message);
-                    if (parsedEdgeError.error) {
-                        errorMessage = parsedEdgeError.error;
-                    }
-                } catch (e) {
-                    // Fallback to original message if parsing fails
-                }
-            } else if (error.data && typeof error.data === 'object' && 'error' in error.data) {
-                errorMessage = (error.data as { error: string }).error;
-            } else if (typeof error.message === 'string') {
-                try {
-                    const parsedMessage = JSON.parse(error.message);
-                    if (parsedMessage.error) {
-                        errorMessage = parsedMessage.error;
-                    }
-                } catch (e) {
-                    // Not a JSON string, use as is
-                }
-            }
-            
-            toast({
-              title: `Error Stok Eksternal (${item.platform} - ${formatNominalDisplay(item.nominal)})`,
-              description: errorMessage,
-              variant: "destructive",
-            });
-            // No need to throw here, as we are handling it with toast
-            // throw new Error(errorMessage); // Removed this line
-          }
+          if (error) throw new Error(error.message);
           return { ...item, external: data.stock };
         } catch (err) {
           console.error(`Gagal mengambil stok eksternal untuk ${item.platform} ${item.nominal}:`, err);
-          // This catch block handles errors that occur *before* the invoke call or if the invoke call itself fails in an unexpected way
-          // The error from invoke is handled in the if (error) block above.
-          toast({
-            title: `Error Stok Eksternal (${item.platform} - ${formatNominalDisplay(item.nominal)})`,
-            description: `Terjadi kesalahan tak terduga: ${err instanceof Error ? err.message : String(err)}`,
-            variant: "destructive",
-          });
           return { ...item, external: 'N/A' as const };
         }
       });
 
+    // Perbarui state saat setiap promise selesai untuk tampilan yang lebih responsif
     for (const promise of externalStockPromises) {
         const result = await promise;
         setStock(prevStock => 
@@ -142,7 +102,7 @@ export const StockDisplay = () => {
 
   useEffect(() => {
     fetchInternalStock();
-  }, []);
+  }, []); // Hanya panggil fetchInternalStock saat komponen mount
 
   return (
     <TooltipProvider>
@@ -152,10 +112,10 @@ export const StockDisplay = () => {
         <div className="flex justify-center mb-6">
           <Button 
             onClick={fetchExternalStock} 
-            disabled={loadingExternal}
+            disabled={loadingExternal} // Menggunakan loadingExternal
             className="flex items-center gap-2"
           >
-            {loadingExternal ? (
+            {loadingExternal ? ( // Menggunakan loadingExternal
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Eksternal...
               </>
