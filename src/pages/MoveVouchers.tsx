@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,13 +8,31 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { ArrowRight, ArrowLeft } from "lucide-react"; // Import ArrowLeft
+import { ArrowRight, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
+
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+
+const formatNominalDisplay = (nominal: string) => {
+  const numNominal = parseInt(nominal, 10);
+  if (numNominal === 100) return "100 RBX";
+  if (numNominal === 200) return "200 RBX";
+  return (numNominal / 1000).toLocaleString('id-ID') + 'K';
+};
+
+const getFilteredNominalOptions = (platform: Platform | 'all') => {
+  if (platform === "Itemku") {
+    return ALL_NOMINAL_OPTIONS_STR;
+  } else if (platform === "LG" || platform === "wahyu") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+  }
+  return ALL_NOMINAL_OPTIONS_STR;
+};
 
 export default function MoveVouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -23,13 +41,22 @@ export default function MoveVouchersPage() {
   
   const [sourcePlatform, setSourcePlatform] = useState<Platform | 'all'>('all');
   const [targetPlatform, setTargetPlatform] = useState<Platform | ''>('');
+  const [nominal, setNominal] = useState<string>('all');
   
   const { toast } = useToast();
-  const navigate = useNavigate(); // Inisialisasi useNavigate
+  const navigate = useNavigate();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalVouchers, setTotalVouchers] = useState(0);
+
+  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(sourcePlatform), [sourcePlatform]);
+
+  useEffect(() => {
+    if (nominal !== 'all' && !filteredNominalOptions.includes(nominal)) {
+      setNominal('all');
+    }
+  }, [sourcePlatform, nominal, filteredNominalOptions]);
 
   const fetchVouchers = useCallback(async () => {
     setLoading(true);
@@ -46,6 +73,9 @@ export default function MoveVouchersPage() {
     if (sourcePlatform !== 'all') {
       query = query.eq('platform', sourcePlatform);
     }
+    if (nominal !== 'all') {
+      query = query.eq('nominal', parseInt(nominal, 10));
+    }
 
     const { data, error, count } = await query;
 
@@ -56,7 +86,7 @@ export default function MoveVouchersPage() {
       setTotalVouchers(count || 0);
     }
     setLoading(false);
-  }, [currentPage, itemsPerPage, sourcePlatform, toast]);
+  }, [currentPage, itemsPerPage, sourcePlatform, nominal, toast]);
 
   useEffect(() => {
     fetchVouchers();
@@ -127,10 +157,10 @@ export default function MoveVouchersPage() {
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Filter & Pindahkan</CardTitle>
-          <CardDescription>Pilih platform sumber untuk menampilkan voucher, lalu pilih platform tujuan untuk memindahkannya.</CardDescription>
+          <CardDescription>Pilih platform sumber dan nominal untuk menampilkan voucher, lalu pilih platform tujuan untuk memindahkannya.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
               <label htmlFor="source-platform" className="block text-sm font-medium mb-1">Dari Platform</label>
               <Select value={sourcePlatform} onValueChange={(value: Platform | 'all') => {
@@ -143,6 +173,20 @@ export default function MoveVouchersPage() {
                 <SelectContent>
                   <SelectItem value="all">Semua Platform</SelectItem>
                   {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label htmlFor="nominal-filter" className="block text-sm font-medium mb-1">Nominal</label>
+              <Select value={nominal} onValueChange={setNominal}>
+                <SelectTrigger id="nominal-filter">
+                  <SelectValue placeholder="Pilih Nominal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Nominal</SelectItem>
+                  {filteredNominalOptions.map(n => (
+                    <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -198,6 +242,7 @@ export default function MoveVouchersPage() {
                       />
                     </TableHead>
                     <TableHead>Kode Voucher</TableHead>
+                    <TableHead>Nominal</TableHead>
                     <TableHead>Platform Saat Ini</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead>Tanggal</TableHead>
@@ -214,6 +259,7 @@ export default function MoveVouchersPage() {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{voucher.code}</TableCell>
+                      <TableCell>{formatNominalDisplay(String(voucher.nominal))}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
                       <TableCell>{voucher.source || '-'}</TableCell>
                       <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
@@ -223,7 +269,7 @@ export default function MoveVouchersPage() {
               </Table>
               {vouchers.length === 0 && !loading && (
                 <div className="text-center py-10 text-gray-500">
-                    <p>Tidak ada voucher yang ditemukan untuk platform yang dipilih.</p>
+                    <p>Tidak ada voucher yang ditemukan untuk filter yang dipilih.</p>
                 </div>
               )}
               <div className="flex items-center justify-between mt-4">
