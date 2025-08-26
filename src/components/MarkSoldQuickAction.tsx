@@ -227,7 +227,7 @@ export const MarkSoldQuickAction = () => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Tandai Voucher Terjual</CardTitle>
+          <DialogTitle>Tandai Voucher Terjual</DialogTitle> {/* Perbaikan di sini */}
           <DialogDescription>
             Pilih platform, nominal, dan jumlah voucher yang terjual. Sistem akan otomatis mengambil voucher tertua (FIFO).
           </DialogDescription>
