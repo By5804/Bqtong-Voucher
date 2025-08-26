@@ -18,6 +18,7 @@ type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
+const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"]; // Menambahkan 'Random'
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
@@ -186,10 +187,7 @@ const InputVouchersPage = () => {
                 <Select value={source} onValueChange={(value: Source) => setSource(value)} disabled={loading}>
                   <SelectTrigger id="source-select"><SelectValue placeholder="Pilih Source (Opsional)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Paygift website">Paygift website</SelectItem>
-                    <SelectItem value="Paygift Sales">Paygift Sales</SelectItem>
-                    <SelectItem value="Tokopedia">Tokopedia</SelectItem>
-                    <SelectItem value="Manual Adjustment">Manual Adjustment</SelectItem>
+                    {sourceOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

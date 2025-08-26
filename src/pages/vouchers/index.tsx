@@ -22,7 +22,7 @@ type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['sourc
 type Status = Database['public']['Tables']['vouchers']['Row']['status'];
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment"];
+const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"]; // Menambahkan 'Random'
 const statusOptions: Status[] = ["available", "sold"];
 
 const formatNominalDisplay = (nominal: string | number) => {

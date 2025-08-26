@@ -12,6 +12,7 @@ import { Database } from "@/integrations/supabase/types";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
+const visiblePlatformOptions: Platform[] = platformOptions.filter(p => p !== "wahyu"); // Filter out "wahyu"
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
@@ -56,7 +57,7 @@ export const StockDisplay = () => {
   const fetchInternalStock = async () => {
     setLoadingInternal(true);
     const initialStockPromises: Promise<Omit<StockData, 'external'>>[] = [];
-    for (const platform of platformOptions) {
+    for (const platform of visiblePlatformOptions) { // Use visiblePlatformOptions here
       const nominalsForPlatform = getNominalsForPlatform(platform);
 
       for (const nominal of nominalsForPlatform) {
@@ -161,7 +162,7 @@ export const StockDisplay = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {loadingInternal
-            ? platformOptions.map((p) => (
+            ? visiblePlatformOptions.map((p) => ( // Use visiblePlatformOptions here
                 <Card key={p}>
                   <CardHeader><CardTitle><Skeleton className="h-6 w-24" /></CardTitle></CardHeader>
                   <CardContent className="space-y-2">
@@ -174,7 +175,7 @@ export const StockDisplay = () => {
                   </CardContent>
                 </Card>
               ))
-            : platformOptions.map((platform) => (
+            : visiblePlatformOptions.map((platform) => ( // Use visiblePlatformOptions here
                 <Card key={platform}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-lg font-medium">{platform}</CardTitle>

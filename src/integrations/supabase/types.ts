@@ -7,9 +7,8 @@ export type Database = {
           created_at: string;
           tanggal: string;
           nominal: string; // Diubah dari number menjadi string
-          code: string;
           platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-          source: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | null; // Menambahkan 'Manual Adjustment'
+          source: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
           status: 'available' | 'sold';
         };
         Insert: {
@@ -19,7 +18,7 @@ export type Database = {
           nominal: string; // Diubah dari number menjadi string
           code: string;
           platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | null; // Menambahkan 'Manual Adjustment'
+          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
           status?: 'available' | 'sold';
         };
         Update: {
@@ -29,7 +28,7 @@ export type Database = {
           nominal?: string; // Diubah dari number menjadi string
           code?: string;
           platform?: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | null; // Menambahkan 'Manual Adjustment'
+          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
           status?: 'available' | 'sold';
         };
       };
