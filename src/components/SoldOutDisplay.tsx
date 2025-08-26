@@ -52,7 +52,7 @@ export const SoldOutDisplay = () => {
   const { toast } = useToast();
 
   const [filters, setFilters] = useState({
-    searchDate: new Date().toISOString().split('T')[0], // Default to today's date
+    searchDate: '', // Default kosong, akan diisi dari serverTime
     dateRange: 'daily', // Default to daily transactions
   });
 
@@ -77,6 +77,11 @@ export const SoldOutDisplay = () => {
         setServerTime(null);
       } else {
         setServerTime(data.timestamp);
+        // Set default searchDate to server's current date if dateRange is 'daily'
+        if (filters.dateRange === 'daily') {
+          const serverDate = new Date(data.timestamp);
+          setFilters(prev => ({ ...prev, searchDate: formatISO(serverDate, { representation: 'date' }) }));
+        }
       }
     } catch (err: any) {
       console.error("General error fetching server time:", err.message);
@@ -85,13 +90,12 @@ export const SoldOutDisplay = () => {
     } finally {
       setLoadingServerTime(false);
     }
-  }, [toast]);
+  }, [toast, filters.dateRange]); // Tambahkan filters.dateRange sebagai dependency
 
   const fetchSoldData = useCallback(async () => {
     setLoading(true);
     const allSoldPromises: Promise<DetailedSoldData>[] = [];
 
-    const today = new Date();
     let queryStartDate: Date | null = null;
     let queryEndDate: Date | null = null;
 
@@ -99,31 +103,35 @@ export const SoldOutDisplay = () => {
       queryStartDate = new Date(filters.searchDate);
       queryEndDate = new Date(filters.searchDate); // For a single specific day
     } else {
-      switch (filters.dateRange) {
-        case 'daily':
-          queryStartDate = today;
-          queryEndDate = today;
-          break;
-        case 'weekly':
-          queryStartDate = subDays(today, 7);
-          queryEndDate = today;
-          break;
-        case '2-weeks':
-          queryStartDate = subDays(today, 14);
-          queryEndDate = today;
-          break;
-        case 'monthly':
-          queryStartDate = subDays(today, 30);
-          queryEndDate = today;
-          break;
-        case 'yearly':
-          queryStartDate = subDays(today, 365);
-          queryEndDate = today;
-          break;
-        case 'all':
-        default:
-          // No date filters
-          break;
+      // If searchDate is empty, use dateRange logic based on serverTime if available
+      if (serverTime) {
+        const today = new Date(serverTime); // Use server time for 'today'
+        switch (filters.dateRange) {
+          case 'daily':
+            queryStartDate = today;
+            queryEndDate = today;
+            break;
+          case 'weekly':
+            queryStartDate = subDays(today, 7);
+            queryEndDate = today;
+            break;
+          case '2-weeks':
+            queryStartDate = subDays(today, 14);
+            queryEndDate = today;
+            break;
+          case 'monthly':
+            queryStartDate = subDays(today, 30);
+            queryEndDate = today;
+            break;
+          case 'yearly':
+            queryStartDate = subDays(today, 365);
+            queryEndDate = today;
+            break;
+          case 'all':
+          default:
+            // No date filters
+            break;
+        }
       }
     }
 
@@ -163,14 +171,21 @@ export const SoldOutDisplay = () => {
     const results = await Promise.all(allSoldPromises);
     setSoldData(results);
     setLoading(false);
-  }, [filters, toast]);
+  }, [filters, serverTime, toast]); // Tambahkan serverTime sebagai dependency
 
   useEffect(() => {
-    fetchSoldData();
     fetchServerTime(); // Fetch server time on initial load
     const interval = setInterval(fetchServerTime, 60 * 1000); // Refresh server time every minute
     return () => clearInterval(interval);
-  }, [fetchSoldData, fetchServerTime]);
+  }, [fetchServerTime]);
+
+  useEffect(() => {
+    // Panggil fetchSoldData hanya jika serverTime sudah tersedia atau filter sudah diatur
+    if (serverTime || filters.searchDate || filters.dateRange === 'all') {
+      fetchSoldData();
+    }
+  }, [fetchSoldData, serverTime, filters.searchDate, filters.dateRange]);
+
 
   return (
     <div className="w-full max-w-4xl">

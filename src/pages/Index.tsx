@@ -6,13 +6,44 @@ import { Link } from "react-router-dom";
 import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
 import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction";
-import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction"; // Import komponen baru
+import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction";
 import { PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react"; // Import useEffect dan useCallback
+import { supabase } from "@/integrations/supabase/client"; // Import supabase client
+import { useToast } from "@/components/ui/use-toast"; // Import useToast
 
 const Index = () => {
   const [stockKey, setStockKey] = useState(0);
   const refreshStockDisplay = () => setStockKey(prev => prev + 1);
+  const [serverTime, setServerTime] = useState<string | null>(null);
+  const [loadingServerTime, setLoadingServerTime] = useState(true);
+  const { toast } = useToast();
+
+  const fetchServerTime = useCallback(async () => {
+    setLoadingServerTime(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-server-time');
+      if (error) {
+        console.error("Error fetching server time:", error.message);
+        toast({ title: "Error", description: `Gagal memuat waktu server: ${error.message}`, variant: "destructive" });
+        setServerTime(null);
+      } else {
+        setServerTime(data.timestamp);
+      }
+    } catch (err: any) {
+      console.error("General error fetching server time:", err.message);
+      toast({ title: "Error", description: `Terjadi kesalahan saat memuat waktu server: ${err.message}`, variant: "destructive" });
+      setServerTime(null);
+    } finally {
+      setLoadingServerTime(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchServerTime();
+    const interval = setInterval(fetchServerTime, 60 * 1000); // Refresh server time every minute
+    return () => clearInterval(interval);
+  }, [fetchServerTime]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-8">
@@ -46,8 +77,18 @@ const Index = () => {
               </span>
             </Link>
           </Button>
-          <ManageProductMappingsQuickAction /> {/* Menambahkan tombol aksi cepat baru */}
+          <ManageProductMappingsQuickAction />
         </div>
+      </div>
+
+      <div className="text-center text-sm text-muted-foreground mt-8">
+        {loadingServerTime ? (
+          <span>Memuat waktu server...</span>
+        ) : serverTime ? (
+          <span>Waktu Server: {new Date(serverTime).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'long' })}</span>
+        ) : (
+          <span>Gagal memuat waktu server.</span>
+        )}
       </div>
 
       <MadeWithDyad />
