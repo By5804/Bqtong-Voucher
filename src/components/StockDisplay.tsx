@@ -36,7 +36,7 @@ type StockData = {
 
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
-    return ["50000", "65000", "100000", "200000", "300000", "500000"];
+    return ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
   } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
     return ["50000", "65000", "200000"];
   } else if (currentPlatform === "Itemku Steam Game Key") {

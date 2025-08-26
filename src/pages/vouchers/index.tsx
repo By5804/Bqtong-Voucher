@@ -41,7 +41,7 @@ const formatNominalDisplay = (nominal: string | number) => {
 
 const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') => {
   if (platformFilter === "Itemku") {
-    return ["50000", "65000", "100000", "200000", "300000", "500000"];
+    return ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
   } else if (platformFilter === "LG" || platformFilter === "wahyu") {
     return ["50000", "65000", "200000"];
   } else if (platformFilter === "Itemku Steam Game Key") {
