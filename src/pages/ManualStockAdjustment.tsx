@@ -15,22 +15,30 @@ import { useNavigate } from "react-router-dom";
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
-const formatNominalDisplay = (nominal: string) => {
-  const numNominal = parseInt(nominal, 10);
-  if (numNominal === 100) return "100 RBX";
-  if (numNominal === 200) return "200 RBX";
-  if (numNominal === 400) return "400 RBX";
-  return numNominal.toLocaleString('id-ID') + 'K';
+const formatNominalDisplay = (nominal: string | number) => {
+  const strNominal = String(nominal);
+  if (strNominal === "100") return "100 RBX";
+  if (strNominal === "200") return "200 RBX";
+  if (strNominal === "400") return "400 RBX";
+  if (strNominal.includes("Random Steam Key")) return strNominal;
+
+  const numNominal = parseInt(strNominal, 10);
+  if (!isNaN(numNominal)) {
+    return numNominal.toLocaleString('id-ID') + 'K';
+  }
+  return strNominal;
 };
 
 const getFilteredNominalOptions = (platform: Platform | '') => {
   if (platform === "Itemku") {
-    return ALL_NOMINAL_OPTIONS_STR;
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
   } else if (platform === "LG" || platform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => [50000, 65000, 200000].includes(parseInt(n, 10)));
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+  } else if (platform === "Itemku Steam Game Key") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
   }
   return [];
 };
@@ -79,7 +87,7 @@ const ManualStockAdjustmentPage = () => {
         code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`, // Generated unique code
         platform,
         source: "Manual Adjustment", // Default source for manual entries
-        nominal: parseInt(nominal, 10),
+        nominal: nominal, // Nominal sekarang string
         status: 'available',
       }));
 

@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { platform, nominal, quantity } = await req.json();
+    const { platform, nominal, quantity } = await req.json(); // nominal sekarang string
 
     if (!platform || !nominal || !quantity || quantity <= 0) {
       return new Response(JSON.stringify({ error: 'Parameter tidak valid' }), {
@@ -33,7 +33,7 @@ serve(async (req) => {
       .from('vouchers')
       .select('id')
       .eq('platform', platform)
-      .eq('nominal', nominal)
+      .eq('nominal', nominal) // Nominal sekarang string
       .eq('status', 'available')
       .order('created_at', { ascending: true })
       .limit(quantity);

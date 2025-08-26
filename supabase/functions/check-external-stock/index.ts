@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { platform, nominal } = await req.json();
+    const { platform, nominal } = await req.json(); // nominal sekarang string
 
     console.log('Received request for platform:', platform, 'nominal:', nominal);
 
@@ -20,6 +20,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Platform dan nominal dibutuhkan' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
+      });
+    }
+
+    // Jika platform adalah "Itemku Steam Game Key", tidak ada stok eksternal yang bisa dicek
+    if (platform === "Itemku Steam Game Key") {
+      return new Response(JSON.stringify({ stock: "N/A" }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       });
     }
 
@@ -33,7 +41,7 @@ serve(async (req) => {
       .from('product_mappings')
       .select('game_id, item_type_id, item_info_group_id, item_info_id, product_id, store_name')
       .eq('platform', platform)
-      .eq('nominal', nominal)
+      .eq('nominal', nominal) // Nominal sekarang string
       .single();
 
     if (fetchMappingError) {
@@ -71,12 +79,18 @@ serve(async (req) => {
       is_default_product_list: '1', 
       is_auto_delivery_first: '1',
       is_with_promotion: '1', 
-      is_enough_stock: '1', 
       "country_codes[]": 'ID',
       is_exclusive:'false',
       is_include_instant_delivery:'true',
       use_auto_delivery:'true',
     };
+
+    // Only add is_enough_stock if nominal is numeric (not for random keys)
+    const numNominal = parseInt(nominal, 10);
+    if (!isNaN(numNominal)) {
+      itemkuApiParams['is_enough_stock'] = '1';
+    }
+
 
     const url = new URL(scrapeUrl);
     url.search = new URLSearchParams(itemkuApiParams as Record<string, string>).toString();

@@ -13,28 +13,37 @@ import { useToast } from "@/components/ui/use-toast";
 import { subDays, formatISO } from "date-fns";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS = [100, 200, 400, 50000, 65000, 100000, 200000, 300000, 500000];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
-const formatNominalDisplay = (nominal: number) => {
-  if (nominal === 100) return "100 RBX";
-  if (nominal === 200) return "200 RBX";
-  if (nominal === 400) return "400 RBX";
-  return (nominal / 1000).toLocaleString('id-ID') + 'K';
+const formatNominalDisplay = (nominal: string | number) => {
+  const strNominal = String(nominal);
+  if (strNominal === "100") return "100 RBX";
+  if (strNominal === "200") return "200 RBX";
+  if (strNominal === "400") return "400 RBX";
+  if (strNominal.includes("Random Steam Key")) return strNominal;
+
+  const numNominal = parseInt(strNominal, 10);
+  if (!isNaN(numNominal)) {
+    return (numNominal / 1000).toLocaleString('id-ID') + 'K';
+  }
+  return strNominal;
 };
 
 type DetailedSoldData = {
   platform: Platform;
-  nominal: number;
+  nominal: string; // Diubah dari number menjadi string
   count: number;
 };
 
 // Helper function for nominals based on platform
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
-    return ALL_NOMINAL_OPTIONS;
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
   } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS.filter(n => [50000, 65000, 200000].includes(n));
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+  } else if (currentPlatform === "Itemku Steam Game Key") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
   }
   return []; 
 };
@@ -90,7 +99,7 @@ export const SoldOutDisplay = () => {
           .from("vouchers")
           .select("*", { count: "exact", head: true })
           .eq("platform", platform)
-          .eq("nominal", nominal)
+          .eq("nominal", nominal) // Nominal sekarang string
           .eq("status", "sold"); // Filter untuk status 'sold'
 
         if (formattedStartDate) {
@@ -179,7 +188,20 @@ export const SoldOutDisplay = () => {
                 <CardContent className="space-y-2">
                   {soldData
                     .filter(item => item.platform === platform)
-                    .sort((a, b) => a.nominal - b.nominal)
+                    .sort((a, b) => {
+                      // Custom sort for nominals: numeric first, then alphabetical for strings
+                      const nominalA = a.nominal;
+                      const nominalB = b.nominal;
+                      const numA = parseInt(nominalA, 10);
+                      const numB = parseInt(nominalB, 10);
+
+                      if (!isNaN(numA) && !isNaN(numB)) {
+                        return numA - numB; // Both are numbers, sort numerically
+                      }
+                      if (!isNaN(numA)) return -1; // A is number, B is string, A comes first
+                      if (!isNaN(numB)) return 1;  // B is number, A is string, B comes first
+                      return nominalA.localeCompare(nominalB); // Both are strings, sort alphabetically
+                    })
                     .map(({ nominal, count }) => (
                       <div key={`sold-${platform}-${nominal}`} className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">

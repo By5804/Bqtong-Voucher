@@ -8,21 +8,29 @@ import { RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { Database } from "@/integrations/supabase/types"; // Import Database type
 
-type Platform = "LG" | "wahyu" | "Itemku";
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS = [100, 200, 400, 50000, 65000, 100000, 200000, 300000, 500000];
+type Platform = Database['public']['Tables']['vouchers']['Row']['platform']; // Menggunakan tipe dari Database
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"]; // Menambahkan platform baru
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
-const formatNominalDisplay = (nominal: number) => {
-  if (nominal === 100) return "100 RBX";
-  if (nominal === 200) return "200 RBX";
-  if (nominal === 400) return "400 RBX";
-  return (nominal / 1000).toLocaleString('id-ID') + 'K';
+const formatNominalDisplay = (nominal: string | number) => {
+  const strNominal = String(nominal);
+  if (strNominal === "100") return "100 RBX";
+  if (strNominal === "200") return "200 RBX";
+  if (strNominal === "400") return "400 RBX";
+  if (strNominal.includes("Random Steam Key")) return strNominal;
+
+  const numNominal = parseInt(strNominal, 10);
+  if (!isNaN(numNominal)) {
+    return (numNominal / 1000).toLocaleString('id-ID') + 'K';
+  }
+  return strNominal;
 };
 
 type StockData = {
   platform: Platform;
-  nominal: number;
+  nominal: string; // Diubah dari number menjadi string
   internal: number;
   external: number | 'N/A' | 'loading' | null;
 };
@@ -30,9 +38,11 @@ type StockData = {
 // Helper function for nominals based on platform
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
-    return ALL_NOMINAL_OPTIONS;
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
   } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS.filter(n => [50000, 65000, 200000].includes(n));
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+  } else if (currentPlatform === "Itemku Steam Game Key") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
   }
   return []; 
 };
@@ -42,6 +52,7 @@ export const StockDisplay = () => {
   const [loadingInternal, setLoadingInternal] = useState(true);
   const [loadingExternalLG, setLoadingExternalLG] = useState(false);
   const [loadingExternalItemku, setLoadingExternalItemku] = useState(false);
+  const [loadingExternalItemkuSteam, setLoadingExternalItemkuSteam] = useState(false); // New loading state for Itemku Steam
   const { toast } = useToast();
 
   // Fungsi untuk mengambil stok internal (berjalan otomatis saat mount)
@@ -56,7 +67,7 @@ export const StockDisplay = () => {
           .from("vouchers")
           .select("*", { count: "exact", head: true })
           .eq("platform", platform)
-          .eq("nominal", nominal)
+          .eq("nominal", nominal) // Nominal sekarang string
           .eq("status", "available")
           .then(({ count }) => ({ platform, nominal, internal: count || 0 }));
         initialStockPromises.push(promise);
@@ -66,8 +77,8 @@ export const StockDisplay = () => {
     
     const initialData = internalResults.map(item => ({ 
       ...item, 
-      // Initialize external stock to 'N/A' for 'wahyu', null for LG/Itemku (to be fetched), and 'N/A' for others
-      external: item.platform === "wahyu" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
+      // Initialize external stock to 'N/A' for 'wahyu' and 'Itemku Steam Game Key', null for LG/Itemku (to be fetched)
+      external: item.platform === "wahyu" || item.platform === "Itemku Steam Game Key" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
     }));
     setStock(initialData);
     setLoadingInternal(false);
@@ -77,8 +88,8 @@ export const StockDisplay = () => {
   const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform, setLoading: (loading: boolean) => void) => {
     setLoading(true);
     
-    // If platform is 'wahyu', set external stock to 'N/A' immediately
-    if (targetPlatform === "wahyu") {
+    // If platform is 'wahyu' or 'Itemku Steam Game Key', set external stock to 'N/A' immediately
+    if (targetPlatform === "wahyu" || targetPlatform === "Itemku Steam Game Key") {
       setStock(prevStock => 
         prevStock.map(s => 
           s.platform === targetPlatform ? { ...s, external: 'N/A' } : s
@@ -98,7 +109,7 @@ export const StockDisplay = () => {
     const externalStockPromises = platformItems.map(async (item) => {
         try {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
-            body: { platform: item.platform, nominal: item.nominal },
+            body: { platform: item.platform, nominal: item.nominal }, // Nominal sekarang string
           });
 
           console.log(`[StockDisplay] Invoke result for ${item.platform} ${item.nominal}:`, { data, error });
@@ -141,6 +152,10 @@ export const StockDisplay = () => {
     fetchExternalStockForPlatform("Itemku", setLoadingExternalItemku);
   }, [fetchExternalStockForPlatform]);
 
+  const fetchExternalStockItemkuSteam = useCallback(() => {
+    fetchExternalStockForPlatform("Itemku Steam Game Key", setLoadingExternalItemkuSteam);
+  }, [fetchExternalStockForPlatform]);
+
   useEffect(() => {
     fetchInternalStock();
   }, []);
@@ -150,7 +165,7 @@ export const StockDisplay = () => {
       <div className="w-full max-w-4xl">
         <h2 className="text-2xl font-bold text-center mb-4">Stok Voucher Tersedia</h2>
         
-        <div className="flex justify-center mb-6 gap-4">
+        <div className="flex justify-center mb-6 gap-4 flex-wrap">
           <Button 
             onClick={fetchExternalStockLG} 
             disabled={loadingExternalLG}
@@ -181,6 +196,21 @@ export const StockDisplay = () => {
               </>
             )}
           </Button>
+          <Button 
+            onClick={fetchExternalStockItemkuSteam} 
+            disabled={loadingExternalItemkuSteam}
+            className="flex items-center gap-2"
+          >
+            {loadingExternalItemkuSteam ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Itemku Steam...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" /> Refresh Stok Itemku Steam
+              </>
+            )}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -206,7 +236,20 @@ export const StockDisplay = () => {
                   <CardContent className="space-y-2">
                     {stock
                       .filter(item => item.platform === platform)
-                      .sort((a, b) => a.nominal - b.nominal)
+                      .sort((a, b) => {
+                        // Custom sort for nominals: numeric first, then alphabetical for strings
+                        const nominalA = a.nominal;
+                        const nominalB = b.nominal;
+                        const numA = parseInt(nominalA, 10);
+                        const numB = parseInt(nominalB, 10);
+
+                        if (!isNaN(numA) && !isNaN(numB)) {
+                          return numA - numB; // Both are numbers, sort numerically
+                        }
+                        if (!isNaN(numA)) return -1; // A is number, B is string, A comes first
+                        if (!isNaN(numB)) return 1;  // B is number, A is string, B comes first
+                        return nominalA.localeCompare(nominalB); // Both are strings, sort alphabetically
+                      })
                       .map(({ nominal, internal, external }) => (
                         <div key={`${platform}-${nominal}`} className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">

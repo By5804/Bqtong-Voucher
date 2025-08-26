@@ -20,23 +20,31 @@ type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
 
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
+const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
-  const numNominal = typeof nominal === 'string' ? parseInt(nominal, 10) : nominal;
-  if (numNominal === 100) return "100 RBX";
-  if (numNominal === 200) return "200 RBX";
-  if (numNominal === 400) return "400 RBX";
-  return numNominal.toLocaleString('id-ID');
+  const strNominal = String(nominal);
+  if (strNominal === "100") return "100 RBX";
+  if (strNominal === "200") return "200 RBX";
+  if (strNominal === "400") return "400 RBX";
+  if (strNominal.includes("Random Steam Key")) return strNominal;
+
+  const numNominal = parseInt(strNominal, 10);
+  if (!isNaN(numNominal)) {
+    return numNominal.toLocaleString('id-ID');
+  }
+  return strNominal;
 };
 
 const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') => {
   if (platformFilter === "Itemku") {
-    return ALL_NOMINAL_OPTIONS_STR;
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
   } else if (platformFilter === "LG" || platformFilter === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => [50000, 65000, 200000].includes(parseInt(n, 10)));
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+  } else if (platformFilter === "Itemku Steam Game Key") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
   }
   // If 'all' platforms are selected, show all nominals for filtering
   return ALL_NOMINAL_OPTIONS_STR;
@@ -103,7 +111,7 @@ export default function VoucherPage() {
     if (filters.searchCode) query = query.ilike('code', `%${filters.searchCode}%`);
     if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
     if (filters.source !== 'all') query = query.eq('source', filters.source);
-    if (filters.nominal !== 'all') query = query.eq('nominal', parseInt(filters.nominal, 10));
+    if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal); // Nominal sekarang string
 
     const { data, error, count } = await query;
 

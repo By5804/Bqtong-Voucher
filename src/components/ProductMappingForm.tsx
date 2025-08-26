@@ -13,23 +13,31 @@ import { Trash2, Edit } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
-type Platform = "LG" | "wahyu" | "Itemku";
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
+type Platform = "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"]; // Menambahkan platform baru
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
-  const numNominal = typeof nominal === 'string' ? parseInt(nominal, 10) : nominal;
-  if (numNominal === 100) return "100 RBX";
-  if (numNominal === 200) return "200 RBX";
-  if (numNominal === 400) return "400 RBX";
-  return numNominal.toLocaleString('id-ID') + 'K';
+  const strNominal = String(nominal);
+  if (strNominal === "100") return "100 RBX";
+  if (strNominal === "200") return "200 RBX";
+  if (strNominal === "400") return "400 RBX";
+  if (strNominal.includes("Random Steam Key")) return strNominal;
+
+  const numNominal = parseInt(strNominal, 10);
+  if (!isNaN(numNominal)) {
+    return numNominal.toLocaleString('id-ID') + 'K';
+  }
+  return strNominal;
 };
 
 const getFilteredNominalOptions = (platform: Platform | '') => {
   if (platform === "Itemku") {
-    return ALL_NOMINAL_OPTIONS_STR;
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
   } else if (platform === "LG" || platform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => [50000, 65000, 200000].includes(parseInt(n, 10)));
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+  } else if (platform === "Itemku Steam Game Key") {
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
   }
   return [];
 };
@@ -96,7 +104,6 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const parsedNominal = parseInt(nominal, 10);
     const parsedGameId = parseInt(gameId, 10);
     const parsedItemTypeId = parseInt(itemTypeId, 10);
     const parsedItemInfoGroupId = parseInt(itemInfoGroupId, 10);
@@ -104,13 +111,12 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     if (
       !platform ||
-      isNaN(parsedNominal) ||
+      !nominal.trim() || // Nominal sekarang string
       isNaN(parsedGameId) ||
       isNaN(parsedItemTypeId) ||
       isNaN(parsedItemInfoGroupId) ||
       isNaN(parsedItemInfoId) ||
       !productId.trim()
-      // !storeName.trim() // Dihapus karena storeName sekarang opsional
     ) {
       toast({ title: "Error", description: "Harap isi semua field wajib dengan benar.", variant: "destructive" });
       return;
@@ -123,7 +129,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       .from('product_mappings')
       .select('id')
       .eq('platform', platform)
-      .eq('nominal', parsedNominal);
+      .eq('nominal', nominal); // Nominal sekarang string
 
     if (checkError) {
       toast({ title: "Error", description: `Gagal memeriksa duplikasi mapping: ${checkError.message}`, variant: "destructive" });
@@ -144,7 +150,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     const payload = {
       platform,
-      nominal: parsedNominal,
+      nominal: nominal, // Nominal sekarang string
       game_id: parsedGameId,
       item_type_id: parsedItemTypeId,
       item_info_group_id: parsedItemInfoGroupId,
@@ -180,7 +186,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const handleEdit = (mapping: ProductMapping) => {
     setEditingMapping(mapping);
     setPlatform(mapping.platform as Platform);
-    setNominal(String(mapping.nominal));
+    setNominal(mapping.nominal); // Nominal sekarang string
     setGameId(String(mapping.game_id));
     setItemTypeId(String(mapping.item_type_id));
     setItemInfoGroupId(String(mapping.item_info_group_id));
