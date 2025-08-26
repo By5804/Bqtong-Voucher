@@ -50,18 +50,25 @@ serve(async (req) => {
     }
 
     const voucherIds = vouchersToUpdate.map(v => v.id);
+    let totalUpdatedCount = 0;
+    const CHUNK_SIZE = 100; // Ukuran batch untuk pembaruan
 
-    // 2. Update status voucher yang terpilih menjadi 'sold'
-    const { error: updateError, count } = await supabaseAdmin
-      .from('vouchers')
-      .update({ status: 'sold' })
-      .in('id', voucherIds);
+    // 2. Update status voucher yang terpilih menjadi 'sold' dalam batch
+    for (let i = 0; i < voucherIds.length; i += CHUNK_SIZE) {
+      const chunk = voucherIds.slice(i, i + CHUNK_SIZE);
+      const { error: updateError, count: chunkCount } = await supabaseAdmin
+        .from('vouchers')
+        .update({ status: 'sold' })
+        .in('id', chunk);
 
-    if (updateError) {
-      throw updateError;
+      if (updateError) {
+        // Jika terjadi error pada salah satu batch, hentikan dan laporkan
+        throw updateError;
+      }
+      totalUpdatedCount += chunkCount || 0;
     }
 
-    return new Response(JSON.stringify({ message: `${count} voucher berhasil ditandai terjual.`, updatedCount: count }), {
+    return new Response(JSON.stringify({ message: `${totalUpdatedCount} voucher berhasil ditandai terjual.`, updatedCount: totalUpdatedCount }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
