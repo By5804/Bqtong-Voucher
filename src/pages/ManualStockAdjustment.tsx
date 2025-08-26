@@ -43,12 +43,12 @@ const getFilteredNominalOptions = (platform: Platform | '') => {
   return [];
 };
 
-const CHUNK_SIZE = 100; // Ukuran batch untuk setiap request ke database
+const CHUNK_SIZE = 100;
 
 const ManualStockAdjustmentPage = () => {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
   const [platform, setPlatform] = useState<Platform>("LG");
-  const [nominal, setNominal] = useState("50000"); // Default for LG
+  const [nominal, setNominal] = useState("50000");
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
@@ -58,11 +58,9 @@ const ManualStockAdjustmentPage = () => {
   const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
 
   useEffect(() => {
-    // Reset nominal if the selected platform changes and the current nominal is no longer valid
     if (nominal && !filteredNominalOptions.includes(nominal)) {
       setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
     } else if (!nominal && filteredNominalOptions.length > 0) {
-      // Set a default if no nominal is selected and options are available
       setNominal(filteredNominalOptions[0]);
     }
   }, [platform, nominal, filteredNominalOptions]);
@@ -84,10 +82,10 @@ const ManualStockAdjustmentPage = () => {
       const chunkCount = Math.min(CHUNK_SIZE, quantity - i);
       const vouchersToInsert: NewVoucher[] = Array.from({ length: chunkCount }).map((_, idx) => ({
         tanggal,
-        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`, // Generated unique code
+        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`,
         platform,
-        source: "Manual Adjustment", // Default source for manual entries
-        nominal: nominal, // Nominal sekarang string
+        source: "Manual Adjustment",
+        nominal: nominal,
         status: 'available',
       }));
 
@@ -104,7 +102,6 @@ const ManualStockAdjustmentPage = () => {
     }
 
     toast({ title: "Sukses", description: `${successfulInserts} voucher berhasil ditambahkan secara manual.` });
-    // Reset form
     setQuantity(1);
     setLoading(false);
   };

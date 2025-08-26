@@ -25,18 +25,17 @@ const formatNominalDisplay = (nominal: string | number) => {
 
   const numNominal = parseInt(strNominal, 10);
   if (!isNaN(numNominal)) {
-    return (numNominal / 1000).toLocaleString('id-ID') + 'K';
+    return numNominal.toLocaleString('id-ID') + 'K';
   }
   return strNominal;
 };
 
 type DetailedSoldData = {
   platform: Platform;
-  nominal: string; // Diubah dari number menjadi string
+  nominal: string;
   count: number;
 };
 
-// Helper function for nominals based on platform
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
     return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
@@ -55,7 +54,7 @@ export const SoldOutDisplay = () => {
 
   const [filters, setFilters] = useState({
     searchDate: '',
-    dateRange: 'all', // 'all', 'daily', 'weekly', '2-weeks', 'monthly', 'yearly'
+    dateRange: 'all',
   });
 
   const handleFilterChange = (key: 'searchDate' | 'dateRange', value: string) => {
@@ -74,17 +73,15 @@ export const SoldOutDisplay = () => {
     let startDate: Date | null = null;
 
     if (filters.searchDate) {
-      // Specific date filter takes precedence
       startDate = new Date(filters.searchDate);
     } else {
-      // Date range filter
       switch (filters.dateRange) {
         case 'daily': startDate = today; break;
         case 'weekly': startDate = subDays(today, 7); break;
         case '2-weeks': startDate = subDays(today, 14); break;
         case 'monthly': startDate = subDays(today, 30); break;
         case 'yearly': startDate = subDays(today, 365); break;
-        case 'all': // No date filter
+        case 'all':
         default: startDate = null; break;
       }
     }
@@ -92,19 +89,18 @@ export const SoldOutDisplay = () => {
     const formattedStartDate = startDate ? formatISO(startDate, { representation: 'date' }) : null;
 
     for (const platform of platformOptions) {
-      const nominals = getNominalsForPlatform(platform); // Use helper function
+      const nominals = getNominalsForPlatform(platform);
 
       for (const nominal of nominals) {
         let query = supabase
           .from("vouchers")
           .select("*", { count: "exact", head: true })
           .eq("platform", platform)
-          .eq("nominal", nominal) // Nominal sekarang string
-          .eq("status", "sold"); // Filter untuk status 'sold'
+          .eq("nominal", nominal)
+          .eq("status", "sold");
 
         if (formattedStartDate) {
           query = query.gte('tanggal', formattedStartDate);
-          // If specific date, also add lte for the same day to ensure exact match
           if (filters.searchDate) {
             query = query.lte('tanggal', formattedStartDate);
           }
@@ -114,7 +110,7 @@ export const SoldOutDisplay = () => {
           if (error) {
             console.error(`Error fetching sold data for ${platform} ${nominal}:`, error.message);
             toast({ title: "Error", description: `Gagal memuat data terjual untuk ${platform} ${formatNominalDisplay(nominal)}: ${error.message}`, variant: "destructive" });
-            return { platform, nominal, count: 0 }; // Return 0 count on error
+            return { platform, nominal, count: 0 };
           }
           return { platform, nominal, count: count || 0 };
         });
@@ -189,18 +185,17 @@ export const SoldOutDisplay = () => {
                   {soldData
                     .filter(item => item.platform === platform)
                     .sort((a, b) => {
-                      // Custom sort for nominals: numeric first, then alphabetical for strings
                       const nominalA = a.nominal;
                       const nominalB = b.nominal;
                       const numA = parseInt(nominalA, 10);
                       const numB = parseInt(nominalB, 10);
 
                       if (!isNaN(numA) && !isNaN(numB)) {
-                        return numA - numB; // Both are numbers, sort numerically
+                        return numA - numB;
                       }
-                      if (!isNaN(numA)) return -1; // A is number, B is string, A comes first
-                      if (!isNaN(numB)) return 1;  // B is number, A is string, B comes first
-                      return nominalA.localeCompare(nominalB); // Both are strings, sort alphabetically
+                      if (!isNaN(numA)) return -1;
+                      if (!isNaN(numB)) return 1;
+                      return nominalA.localeCompare(nominalB);
                     })
                     .map(({ nominal, count }) => (
                       <div key={`sold-${platform}-${nominal}`} className="flex justify-between items-center">

@@ -8,10 +8,10 @@ import { RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Database } from "@/integrations/supabase/types"; // Import Database type
+import { Database } from "@/integrations/supabase/types";
 
-type Platform = Database['public']['Tables']['vouchers']['Row']['platform']; // Menggunakan tipe dari Database
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"]; // Menambahkan platform baru
+type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
 const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
@@ -23,19 +23,18 @@ const formatNominalDisplay = (nominal: string | number) => {
 
   const numNominal = parseInt(strNominal, 10);
   if (!isNaN(numNominal)) {
-    return (numNominal / 1000).toLocaleString('id-ID') + 'K';
+    return numNominal.toLocaleString('id-ID') + 'K';
   }
   return strNominal;
 };
 
 type StockData = {
   platform: Platform;
-  nominal: string; // Diubah dari number menjadi string
+  nominal: string;
   internal: number;
   external: number | 'N/A' | 'loading' | null;
 };
 
-// Helper function for nominals based on platform
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
     return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
@@ -52,22 +51,21 @@ export const StockDisplay = () => {
   const [loadingInternal, setLoadingInternal] = useState(true);
   const [loadingExternalLG, setLoadingExternalLG] = useState(false);
   const [loadingExternalItemku, setLoadingExternalItemku] = useState(false);
-  const [loadingExternalItemkuSteam, setLoadingExternalItemkuSteam] = useState(false); // New loading state for Itemku Steam
+  const [loadingExternalItemkuSteam, setLoadingExternalItemkuSteam] = useState(false);
   const { toast } = useToast();
 
-  // Fungsi untuk mengambil stok internal (berjalan otomatis saat mount)
   const fetchInternalStock = async () => {
     setLoadingInternal(true);
     const initialStockPromises: Promise<Omit<StockData, 'external'>>[] = [];
     for (const platform of platformOptions) {
-      const nominalsForPlatform = getNominalsForPlatform(platform); // Use helper function
+      const nominalsForPlatform = getNominalsForPlatform(platform);
 
       for (const nominal of nominalsForPlatform) {
         const promise = supabase
           .from("vouchers")
           .select("*", { count: "exact", head: true })
           .eq("platform", platform)
-          .eq("nominal", nominal) // Nominal sekarang string
+          .eq("nominal", nominal)
           .eq("status", "available")
           .then(({ count }) => ({ platform, nominal, internal: count || 0 }));
         initialStockPromises.push(promise);
@@ -77,18 +75,15 @@ export const StockDisplay = () => {
     
     const initialData = internalResults.map(item => ({ 
       ...item, 
-      // Initialize external stock to 'N/A' for 'wahyu' and 'Itemku Steam Game Key', null for LG/Itemku (to be fetched)
       external: item.platform === "wahyu" || item.platform === "Itemku Steam Game Key" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
     }));
     setStock(initialData);
     setLoadingInternal(false);
   };
 
-  // Fungsi umum untuk mengambil stok eksternal untuk platform tertentu
   const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform, setLoading: (loading: boolean) => void) => {
     setLoading(true);
     
-    // If platform is 'wahyu' or 'Itemku Steam Game Key', set external stock to 'N/A' immediately
     if (targetPlatform === "wahyu" || targetPlatform === "Itemku Steam Game Key") {
       setStock(prevStock => 
         prevStock.map(s => 
@@ -109,7 +104,7 @@ export const StockDisplay = () => {
     const externalStockPromises = platformItems.map(async (item) => {
         try {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
-            body: { platform: item.platform, nominal: item.nominal }, // Nominal sekarang string
+            body: { platform: item.platform, nominal: item.nominal },
           });
 
           console.log(`[StockDisplay] Invoke result for ${item.platform} ${item.nominal}:`, { data, error });
@@ -237,18 +232,17 @@ export const StockDisplay = () => {
                     {stock
                       .filter(item => item.platform === platform)
                       .sort((a, b) => {
-                        // Custom sort for nominals: numeric first, then alphabetical for strings
                         const nominalA = a.nominal;
                         const nominalB = b.nominal;
                         const numA = parseInt(nominalA, 10);
                         const numB = parseInt(nominalB, 10);
 
                         if (!isNaN(numA) && !isNaN(numB)) {
-                          return numA - numB; // Both are numbers, sort numerically
+                          return numA - numB;
                         }
-                        if (!isNaN(numA)) return -1; // A is number, B is string, A comes first
-                        if (!isNaN(numB)) return 1;  // B is number, A is string, B comes first
-                        return nominalA.localeCompare(nominalB); // Both are strings, sort alphabetically
+                        if (!isNaN(numA)) return -1;
+                        if (!isNaN(numB)) return 1;
+                        return nominalA.localeCompare(nominalB);
                       })
                       .map(({ nominal, internal, external }) => (
                         <div key={`${platform}-${nominal}`} className="flex justify-between items-center">

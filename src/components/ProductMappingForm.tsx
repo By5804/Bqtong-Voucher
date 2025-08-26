@@ -13,8 +13,8 @@ import { Trash2, Edit } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
-type Platform = "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"]; // Menambahkan platform baru
+type Platform = "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
 const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
@@ -50,7 +50,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [itemInfoGroupId, setItemInfoGroupId] = useState<string>('');
   const [itemInfoId, setItemInfoId] = useState<string>('');
   const [productId, setProductId] = useState<string>('');
-  const [storeName, setStoreName] = useState<string>(''); // Tetap string, akan diubah ke null jika kosong saat insert/update
+  const [storeName, setStoreName] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<ProductMapping[]>([]);
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
@@ -111,7 +111,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     if (
       !platform ||
-      !nominal.trim() || // Nominal sekarang string
+      !nominal.trim() ||
       isNaN(parsedGameId) ||
       isNaN(parsedItemTypeId) ||
       isNaN(parsedItemInfoGroupId) ||
@@ -124,12 +124,11 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     setLoading(true);
 
-    // --- START: Duplicate Check Logic ---
     const { data: existingMappings, error: checkError } = await supabase
       .from('product_mappings')
       .select('id')
       .eq('platform', platform)
-      .eq('nominal', nominal); // Nominal sekarang string
+      .eq('nominal', nominal);
 
     if (checkError) {
       toast({ title: "Error", description: `Gagal memeriksa duplikasi mapping: ${checkError.message}`, variant: "destructive" });
@@ -146,17 +145,16 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
         return;
       }
     }
-    // --- END: Duplicate Check Logic ---
 
     const payload = {
       platform,
-      nominal: nominal, // Nominal sekarang string
+      nominal: nominal,
       game_id: parsedGameId,
       item_type_id: parsedItemTypeId,
       item_info_group_id: parsedItemInfoGroupId,
       item_info_id: parsedItemInfoId,
       product_id: productId.trim(),
-      store_name: storeName.trim() === '' ? null : storeName.trim(), // Set to null if empty
+      store_name: storeName.trim() === '' ? null : storeName.trim(),
     };
 
     let error;
@@ -186,13 +184,13 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const handleEdit = (mapping: ProductMapping) => {
     setEditingMapping(mapping);
     setPlatform(mapping.platform as Platform);
-    setNominal(mapping.nominal); // Nominal sekarang string
+    setNominal(mapping.nominal);
     setGameId(String(mapping.game_id));
     setItemTypeId(String(mapping.item_type_id));
     setItemInfoGroupId(String(mapping.item_info_group_id));
     setItemInfoId(String(mapping.item_info_id));
     setProductId(mapping.product_id);
-    setStoreName(mapping.store_name || ''); // Set to empty string if null for input field
+    setStoreName(mapping.store_name || '');
   };
 
   const confirmDelete = (id: string) => {
@@ -308,7 +306,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                   <TableCell>{mapping.item_info_group_id}</TableCell>
                   <TableCell>{mapping.item_info_id}</TableCell>
                   <TableCell>{mapping.product_id}</TableCell>
-                  <TableCell>{mapping.store_name || '-'}</TableCell> {/* Tampilkan '-' jika null */}
+                  <TableCell>{mapping.store_name || '-'}</TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="icon" onClick={() => handleEdit(mapping)} disabled={loading}>
                       <Edit className="h-4 w-4" />

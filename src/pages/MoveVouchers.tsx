@@ -26,7 +26,7 @@ const formatNominalDisplay = (nominal: string | number) => {
 
   const numNominal = parseInt(strNominal, 10);
   if (!isNaN(numNominal)) {
-    return (numNominal / 1000).toLocaleString('id-ID') + 'K';
+    return numNominal.toLocaleString('id-ID') + 'K';
   }
   return strNominal;
 };
@@ -63,7 +63,7 @@ export default function MoveVouchersPage() {
         .from('vouchers')
         .select('*', { count: 'exact', head: true })
         .eq('platform', sourcePlatform)
-        .eq('nominal', nominal) // Nominal sekarang string
+        .eq('nominal', nominal)
         .eq('status', 'available');
 
       if (error) {
@@ -83,7 +83,6 @@ export default function MoveVouchersPage() {
   }, [fetchAvailableStock]);
 
   useEffect(() => {
-    // Reset nominal and target platform if source platform changes
     setNominal('');
     setTargetPlatform('');
   }, [sourcePlatform]);
@@ -104,14 +103,13 @@ export default function MoveVouchersPage() {
 
     setLoading(true);
 
-    // 1. Ambil ID voucher tertua yang akan dipindahkan
     const { data: vouchersToMove, error: selectError } = await supabase
       .from('vouchers')
       .select('id')
       .eq('platform', sourcePlatform)
-      .eq('nominal', nominal) // Nominal sekarang string
+      .eq('nominal', nominal)
       .eq('status', 'available')
-      .order('created_at', { ascending: true }) // FIFO
+      .order('created_at', { ascending: true })
       .limit(quantity);
 
     if (selectError || !vouchersToMove || vouchersToMove.length === 0) {
@@ -122,7 +120,6 @@ export default function MoveVouchersPage() {
 
     const voucherIds = vouchersToMove.map(v => v.id);
 
-    // 2. Update platform untuk voucher yang terpilih
     const { error: updateError } = await supabase
       .from('vouchers')
       .update({ platform: targetPlatform })
@@ -132,7 +129,6 @@ export default function MoveVouchersPage() {
       toast({ title: "Error", description: `Gagal memindahkan voucher: ${updateError.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `${quantity} voucher berhasil dipindahkan ke ${targetPlatform}.` });
-      // Reset form and refetch stock
       setQuantity(1);
       fetchAvailableStock();
     }

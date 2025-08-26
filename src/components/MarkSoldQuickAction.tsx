@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton for loading state
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"]; // Menambahkan platform baru
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
 const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
@@ -62,7 +62,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
         .from('vouchers')
         .select('*', { count: 'exact', head: true })
         .eq('platform', platform)
-        .eq('nominal', nominal) // Nominal sekarang string
+        .eq('nominal', nominal)
         .eq('status', 'available');
 
       if (error) {
@@ -79,17 +79,15 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
   }, [platform, nominal, toast]);
 
   const fetchExternalStock = useCallback(async () => {
-    // Handle Wahyu and Itemku Steam Game Key first, regardless of nominal selection
     if (platform === "wahyu" || platform === "Itemku Steam Game Key") {
       setExternalStock('N/A');
       setLoadingExternalStock(false);
       return;
     }
 
-    // If platform or nominal is not selected for other platforms, set to null
     if (!platform || !nominal) {
       setExternalStock(null);
-      setLoadingExternalStock(false); // Ensure loading is false
+      setLoadingExternalStock(false);
       return;
     }
 
@@ -97,7 +95,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
     setExternalStock('loading');
     try {
       const { data, error } = await supabase.functions.invoke('check-external-stock', {
-        body: { platform, nominal: nominal }, // Nominal sekarang string
+        body: { platform, nominal: nominal },
       });
 
       if (error) {
@@ -122,18 +120,16 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
   }, [platform, nominal, toast]);
 
   useEffect(() => {
-    // Reset nominal if the selected platform changes and the current nominal is no longer valid
     if (nominal && !filteredNominalOptions.includes(nominal)) {
       setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
     } else if (!nominal && filteredNominalOptions.length > 0) {
-      // Set a default if no nominal is selected and options are available
       setNominal(filteredNominalOptions[0]);
     }
     fetchAvailableStock();
-    fetchExternalStock(); // Fetch external stock when platform/nominal changes
-    setRemainingStockInput(''); // Clear remaining stock input on platform/nominal change
-    setQuantityToMarkSold(1); // Reset quantity to 1
-    setIsQuantityCalculated(false); // Reset calculation status
+    fetchExternalStock();
+    setRemainingStockInput('');
+    setQuantityToMarkSold(1);
+    setIsQuantityCalculated(false);
   }, [platform, nominal, filteredNominalOptions, fetchAvailableStock, fetchExternalStock]);
 
   useEffect(() => {
@@ -154,21 +150,17 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
           setIsQuantityCalculated(true);
         }
       } else {
-        // Invalid remainingStockInput, revert to manual quantity
         setIsQuantityCalculated(false);
       }
     } else if (remainingStockInput === '') {
-      // If remainingStockInput is cleared, allow manual input for quantityToMarkSold
       setIsQuantityCalculated(false);
-      // Do not reset quantityToMarkSold here, let it retain its last manual value or default to 1 if it was previously calculated.
-      if (isQuantityCalculated) { // Only reset if it was previously calculated
+      if (isQuantityCalculated) {
         setQuantityToMarkSold(1);
       }
     }
   }, [availableStock, remainingStockInput, toast, isQuantityCalculated]);
 
   const handleQuantityChange = (value: number) => {
-    // If user manually changes quantityToMarkSold, clear remainingStockInput and disable calculation
     setRemainingStockInput('');
     setIsQuantityCalculated(false);
     setQuantityToMarkSold(value);
@@ -176,7 +168,6 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
 
   const handleRemainingStockInputChange = (value: string) => {
     setRemainingStockInput(value);
-    // The useEffect above will handle updating quantityToMarkSold and isQuantityCalculated
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,7 +183,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
     setLoading(true);
 
     const { data, error } = await supabase.functions.invoke('mark-vouchers-sold', {
-      body: { platform, nominal: nominal, quantity: quantityToMarkSold }, // Nominal sekarang string
+      body: { platform, nominal: nominal, quantity: quantityToMarkSold },
     });
 
     if (error) {
@@ -225,7 +216,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
 
     setLoading(true);
     const { data, error } = await supabase.functions.invoke('mark-vouchers-sold', {
-      body: { platform, nominal: nominal, quantity: quantityToMarkSoldCalculated }, // Nominal sekarang string
+      body: { platform, nominal: nominal, quantity: quantityToMarkSoldCalculated },
     });
 
     if (error) {
@@ -297,8 +288,8 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
           onChange={e => handleQuantityChange(Math.max(0, parseInt(e.target.value) || 0))} 
           min="0" 
           required 
-          disabled={loading || isQuantityCalculated} // Disable if calculated
-          readOnly={isQuantityCalculated} // Make readOnly if calculated
+          disabled={loading || isQuantityCalculated}
+          readOnly={isQuantityCalculated}
         />
       </div>
       <Button type="submit" disabled={isSubmitDisabled} className="w-full md:col-span-2">

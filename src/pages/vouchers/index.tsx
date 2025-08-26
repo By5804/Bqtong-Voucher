@@ -35,7 +35,7 @@ const formatNominalDisplay = (nominal: string | number) => {
 
   const numNominal = parseInt(strNominal, 10);
   if (!isNaN(numNominal)) {
-    return numNominal.toLocaleString('id-ID');
+    return numNominal.toLocaleString('id-ID'); // No 'K' suffix for table display
   }
   return strNominal;
 };
@@ -48,7 +48,6 @@ const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') =>
   } else if (platformFilter === "Itemku Steam Game Key") {
     return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
   }
-  // If 'all' platforms are selected, show all nominals for filtering
   return ALL_NOMINAL_OPTIONS_STR;
 };
 
@@ -67,7 +66,7 @@ export default function VoucherPage() {
     platform: 'all',
     source: 'all',
     nominal: 'all',
-    status: 'all' // New status filter
+    status: 'all'
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,7 +76,6 @@ export default function VoucherPage() {
   const filteredNominalOptionsForFilter = useMemo(() => getFilteredNominalOptionsForFilter(filters.platform), [filters.platform]);
 
   useEffect(() => {
-    // Reset nominal filter if platform changes and current nominal is no longer valid
     if (filters.nominal !== 'all' && !filteredNominalOptionsForFilter.includes(filters.nominal)) {
       setFilters(prev => ({ ...prev, nominal: 'all' }));
     }
@@ -115,7 +113,7 @@ export default function VoucherPage() {
     if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
     if (filters.source !== 'all') query = query.eq('source', filters.source);
     if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal);
-    if (filters.status !== 'all') query = query.eq('status', filters.status); // Apply status filter
+    if (filters.status !== 'all') query = query.eq('status', filters.status);
 
     const { data, error, count } = await query;
 
@@ -248,7 +246,7 @@ export default function VoucherPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="lg:col-span-2"> {/* Adjusted span for better layout */}
+              <div className="lg:col-span-2">
                 <Label htmlFor="search-code">Cari Kode Voucher</Label>
                 <Input id="search-code" placeholder="Masukkan kode voucher..." value={filters.searchCode} onChange={e => handleFilterChange('searchCode', e.target.value)} />
               </div>
@@ -284,7 +282,7 @@ export default function VoucherPage() {
                     <TableHead>Kode Voucher</TableHead>
                     <TableHead>Platform</TableHead>
                     <TableHead>Source</TableHead>
-                    <TableHead>Status</TableHead> {/* New Status Column */}
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -305,7 +303,7 @@ export default function VoucherPage() {
                         }`}>
                           {voucher.status === 'available' ? 'Tersedia' : 'Terjual'}
                         </span>
-                      </TableCell> {/* Display Status */}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => { setSelectedVouchers([voucher.id]); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>

@@ -45,7 +45,6 @@ const getFilteredNominalOptions = (platform: Platform | '') => {
   return [];
 };
 
-// Ukuran batch untuk setiap request ke database
 const CHUNK_SIZE = 100;
 
 const InputVouchersPage = () => {
@@ -53,7 +52,7 @@ const InputVouchersPage = () => {
   const [codes, setCodes] = useState("");
   const [platform, setPlatform] = useState<Platform>("LG");
   const [source, setSource] = useState<Source | ''>('');
-  const [nominal, setNominal] = useState("50000"); // Default for LG
+  const [nominal, setNominal] = useState("50000");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
@@ -62,11 +61,9 @@ const InputVouchersPage = () => {
   const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
 
   useEffect(() => {
-    // Reset nominal if the selected platform changes and the current nominal is no longer valid
     if (nominal && !filteredNominalOptions.includes(nominal)) {
       setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
     } else if (!nominal && filteredNominalOptions.length > 0) {
-      // Set a default if no nominal is selected and options are available
       setNominal(filteredNominalOptions[0]);
     }
   }, [platform, nominal, filteredNominalOptions]);
@@ -96,7 +93,6 @@ const InputVouchersPage = () => {
     for (let i = 0; i < codeList.length; i += CHUNK_SIZE) {
       const chunk = codeList.slice(i, i + CHUNK_SIZE);
       
-      // 1. Periksa duplikasi untuk batch saat ini
       const { data: existingVouchers, error: checkError } = await supabase
         .from('vouchers')
         .select('code')
@@ -117,19 +113,17 @@ const InputVouchersPage = () => {
 
       if (uniqueCodesInChunk.length === 0) {
         setProgress(prev => ({ ...prev, processed: prev.processed + chunk.length }));
-        continue; // Lanjut ke batch berikutnya jika semua di batch ini duplikat
+        continue;
       }
 
-      // 2. Siapkan data untuk di-insert
       const vouchersToInsert: NewVoucher[] = uniqueCodesInChunk.map(code => ({
         tanggal,
         code: code.trim(),
         platform,
         source: source || null,
-        nominal: nominal, // Nominal sekarang string
+        nominal: nominal,
       }));
 
-      // 3. Insert batch saat ini
       const { error: insertError } = await supabase.from('vouchers').insert(vouchersToInsert);
 
       if (insertError) {
