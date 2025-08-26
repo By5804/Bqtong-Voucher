@@ -33,7 +33,7 @@ const getFilteredNominalOptions = (platform: Platform | '') => {
   return [];
 };
 
-const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
+const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => void; onActionComplete: () => void; }) => {
   const [platform, setPlatform] = useState<Platform | ''>('');
   const [nominal, setNominal] = useState<string | ''>('');
   const [loading, setLoading] = useState(false);
@@ -191,15 +191,8 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       toast({ title: "Error", description: `Gagal mengupdate: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: data.message });
-      // Reset form and close dialog
-      setPlatform('');
-      setNominal('');
-      setRemainingStockInput('');
-      setQuantityToMarkSold(1);
-      setAvailableStock(null);
-      setExternalStock(null); // Reset external stock too
-      setIsQuantityCalculated(false);
-      onClose(); // Close the dialog after successful update
+      onActionComplete();
+      onClose();
     }
     setLoading(false);
   };
@@ -231,14 +224,7 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       toast({ title: "Error", description: `Gagal mengupdate: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `${data.updatedCount} voucher berhasil ditandai terjual untuk menyamakan stok.` });
-      // Reset form and close dialog
-      setPlatform('');
-      setNominal('');
-      setRemainingStockInput('');
-      setQuantityToMarkSold(1);
-      setAvailableStock(null);
-      setExternalStock(null); // Reset external stock too
-      setIsQuantityCalculated(false);
+      onActionComplete();
       onClose();
     }
     setLoading(false);
@@ -328,7 +314,7 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-export const MarkSoldQuickAction = () => {
+export const MarkSoldQuickAction = ({ onActionComplete }: { onActionComplete: () => void }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -347,7 +333,7 @@ export const MarkSoldQuickAction = () => {
             Pilih platform, nominal, dan jumlah voucher yang terjual. Sistem akan otomatis mengambil voucher tertua (FIFO).
           </DialogDescription>
         </DialogHeader>
-        <UpdateSoldVouchersForm onClose={() => setIsOpen(false)} />
+        <UpdateSoldVouchersForm onClose={() => setIsOpen(false)} onActionComplete={onActionComplete} />
       </DialogContent>
     </Dialog>
   );

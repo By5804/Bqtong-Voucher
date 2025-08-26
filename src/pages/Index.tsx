@@ -8,8 +8,12 @@ import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
 import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction";
 import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction"; // Import komponen baru
 import { PlusCircle } from "lucide-react";
+import { useState } from "react";
 
 const Index = () => {
+  const [stockKey, setStockKey] = useState(0);
+  const refreshStockDisplay = () => setStockKey(prev => prev + 1);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-8">
       <div className="text-center">
@@ -19,7 +23,7 @@ const Index = () => {
         </p>
       </div>
 
-      <StockDisplay />
+      <StockDisplay key={stockKey} />
       
       <div className="text-center flex flex-col items-center gap-4 w-full max-w-4xl">
         <p className="text-lg mb-2">Aksi Cepat:</p>
@@ -33,7 +37,7 @@ const Index = () => {
           <Button asChild variant="secondary">
             <Link to="/move-vouchers">Pindahkan Voucher</Link>
           </Button>
-          <MarkSoldQuickAction />
+          <MarkSoldQuickAction onActionComplete={refreshStockDisplay} />
           <ViewSoldVouchersQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
             <Link to="/manual-stock-adjustment">
