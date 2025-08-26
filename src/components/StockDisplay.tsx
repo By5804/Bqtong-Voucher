@@ -11,11 +11,12 @@ import { useToast } from "@/components/ui/use-toast";
 
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS = [100, 200, 50000, 65000, 100000, 200000, 300000, 500000];
+const ALL_NOMINAL_OPTIONS = [100, 200, 400, 50000, 65000, 100000, 200000, 300000, 500000];
 
 const formatNominalDisplay = (nominal: number) => {
   if (nominal === 100) return "100 RBX";
   if (nominal === 200) return "200 RBX";
+  if (nominal === 400) return "400 RBX";
   return (nominal / 1000).toLocaleString('id-ID') + 'K';
 };
 
@@ -24,6 +25,16 @@ type StockData = {
   nominal: number;
   internal: number;
   external: number | 'N/A' | 'loading' | null;
+};
+
+// Helper function for nominals based on platform
+const getNominalsForPlatform = (currentPlatform: Platform) => {
+  if (currentPlatform === "Itemku") {
+    return ALL_NOMINAL_OPTIONS;
+  } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
+    return ALL_NOMINAL_OPTIONS.filter(n => [50000, 65000, 200000].includes(n));
+  }
+  return []; 
 };
 
 export const StockDisplay = () => {
@@ -38,9 +49,7 @@ export const StockDisplay = () => {
     setLoadingInternal(true);
     const initialStockPromises: Promise<Omit<StockData, 'external'>>[] = [];
     for (const platform of platformOptions) {
-      const nominalsForPlatform = platform === "Itemku" 
-        ? ALL_NOMINAL_OPTIONS 
-        : ALL_NOMINAL_OPTIONS.filter(n => n >= 50000);
+      const nominalsForPlatform = getNominalsForPlatform(platform); // Use helper function
 
       for (const nominal of nominalsForPlatform) {
         const promise = supabase
@@ -168,7 +177,7 @@ export const StockDisplay = () => {
                 <Card key={p}>
                   <CardHeader><CardTitle><Skeleton className="h-6 w-24" /></CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                    {ALL_NOMINAL_OPTIONS.filter(n => p === "Itemku" || n >= 50000).map((n) => (
+                    {getNominalsForPlatform(p).map((n) => (
                       <div key={`${p}-${n}`} className="flex justify-between items-center">
                         <span><Skeleton className="h-4 w-16" /></span>
                         <span><Skeleton className="h-4 w-8" /></span>

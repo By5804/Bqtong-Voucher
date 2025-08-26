@@ -15,12 +15,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
 type Platform = "LG" | "wahyu" | "Itemku";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const numNominal = typeof nominal === 'string' ? parseInt(nominal, 10) : nominal;
   if (numNominal === 100) return "100 RBX";
   if (numNominal === 200) return "200 RBX";
+  if (numNominal === 400) return "400 RBX";
   return numNominal.toLocaleString('id-ID') + 'K';
 };
 
@@ -28,7 +29,7 @@ const getFilteredNominalOptions = (platform: Platform | '') => {
   if (platform === "Itemku") {
     return ALL_NOMINAL_OPTIONS_STR;
   } else if (platform === "LG" || platform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => [50000, 65000, 200000].includes(parseInt(n, 10)));
   }
   return [];
 };

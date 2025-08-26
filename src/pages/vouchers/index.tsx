@@ -22,12 +22,13 @@ type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['sourc
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
 const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const numNominal = typeof nominal === 'string' ? parseInt(nominal, 10) : nominal;
   if (numNominal === 100) return "100 RBX";
   if (numNominal === 200) return "200 RBX";
+  if (numNominal === 400) return "400 RBX";
   return numNominal.toLocaleString('id-ID');
 };
 
@@ -35,7 +36,7 @@ const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') =>
   if (platformFilter === "Itemku") {
     return ALL_NOMINAL_OPTIONS_STR;
   } else if (platformFilter === "LG" || platformFilter === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => [50000, 65000, 200000].includes(parseInt(n, 10)));
   }
   // If 'all' platforms are selected, show all nominals for filtering
   return ALL_NOMINAL_OPTIONS_STR;

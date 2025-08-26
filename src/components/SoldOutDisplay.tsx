@@ -14,11 +14,12 @@ import { subDays, formatISO } from "date-fns";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS = [100, 200, 50000, 65000, 100000, 200000, 300000, 500000];
+const ALL_NOMINAL_OPTIONS = [100, 200, 400, 50000, 65000, 100000, 200000, 300000, 500000];
 
 const formatNominalDisplay = (nominal: number) => {
   if (nominal === 100) return "100 RBX";
   if (nominal === 200) return "200 RBX";
+  if (nominal === 400) return "400 RBX";
   return (nominal / 1000).toLocaleString('id-ID') + 'K';
 };
 
@@ -26,6 +27,16 @@ type DetailedSoldData = {
   platform: Platform;
   nominal: number;
   count: number;
+};
+
+// Helper function for nominals based on platform
+const getNominalsForPlatform = (currentPlatform: Platform) => {
+  if (currentPlatform === "Itemku") {
+    return ALL_NOMINAL_OPTIONS;
+  } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
+    return ALL_NOMINAL_OPTIONS.filter(n => [50000, 65000, 200000].includes(n));
+  }
+  return []; 
 };
 
 export const SoldOutDisplay = () => {
@@ -72,11 +83,9 @@ export const SoldOutDisplay = () => {
     const formattedStartDate = startDate ? formatISO(startDate, { representation: 'date' }) : null;
 
     for (const platform of platformOptions) {
-      const nominalsForPlatform = platform === "Itemku" 
-        ? ALL_NOMINAL_OPTIONS 
-        : ALL_NOMINAL_OPTIONS.filter(n => n >= 50000);
+      const nominals = getNominalsForPlatform(platform); // Use helper function
 
-      for (const nominal of nominalsForPlatform) {
+      for (const nominal of nominals) {
         let query = supabase
           .from("vouchers")
           .select("*", { count: "exact", head: true })
@@ -153,7 +162,7 @@ export const SoldOutDisplay = () => {
                   <CardTitle><Skeleton className="h-6 w-24" /></CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {ALL_NOMINAL_OPTIONS.filter(n => p === "Itemku" || n >= 50000).map((n) => (
+                  {getNominalsForPlatform(p).map((n) => (
                     <div key={`sold-skeleton-${p}-${n}`} className="flex justify-between items-center">
                       <span><Skeleton className="h-4 w-16" /></span>
                       <span><Skeleton className="h-4 w-8" /></span>

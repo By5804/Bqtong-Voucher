@@ -13,12 +13,13 @@ import { Label } from "@/components/ui/label";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "50000", "65000", "100000", "200000", "300000", "500000"];
+const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
 
 const formatNominalDisplay = (nominal: string) => {
   const numNominal = parseInt(nominal, 10);
   if (numNominal === 100) return "100 RBX";
   if (numNominal === 200) return "200 RBX";
+  if (numNominal === 400) return "400 RBX";
   return numNominal.toLocaleString('id-ID') + 'K';
 };
 
@@ -26,7 +27,7 @@ const getFilteredNominalOptions = (platform: Platform | '') => {
   if (platform === "Itemku") {
     return ALL_NOMINAL_OPTIONS_STR;
   } else if (platform === "LG" || platform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => parseInt(n, 10) >= 50000);
+    return ALL_NOMINAL_OPTIONS_STR.filter(n => [50000, 65000, 200000].includes(parseInt(n, 10)));
   }
   return [];
 };
@@ -226,7 +227,7 @@ export const MarkSoldQuickAction = () => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Tandai Voucher Terjual</DialogTitle>
+          <DialogTitle>Tandai Voucher Terjual</CardTitle>
           <DialogDescription>
             Pilih platform, nominal, dan jumlah voucher yang terjual. Sistem akan otomatis mengambil voucher tertua (FIFO).
           </DialogDescription>
