@@ -52,9 +52,12 @@ export const SoldOutDisplay = () => {
   const { toast } = useToast();
 
   const [filters, setFilters] = useState({
-    searchDate: '',
-    dateRange: 'all',
+    searchDate: new Date().toISOString().split('T')[0], // Default to today's date
+    dateRange: 'daily', // Default to daily transactions
   });
+
+  const [serverTime, setServerTime] = useState<string | null>(null);
+  const [loadingServerTime, setLoadingServerTime] = useState(true);
 
   const handleFilterChange = (key: 'searchDate' | 'dateRange', value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -64,28 +67,68 @@ export const SoldOutDisplay = () => {
     setFilters({ searchDate: '', dateRange: 'all' });
   };
 
+  const fetchServerTime = useCallback(async () => {
+    setLoadingServerTime(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-server-time');
+      if (error) {
+        console.error("Error fetching server time:", error.message);
+        toast({ title: "Error", description: `Gagal memuat waktu server: ${error.message}`, variant: "destructive" });
+        setServerTime(null);
+      } else {
+        setServerTime(data.timestamp);
+      }
+    } catch (err: any) {
+      console.error("General error fetching server time:", err.message);
+      toast({ title: "Error", description: `Terjadi kesalahan saat memuat waktu server: ${err.message}`, variant: "destructive" });
+      setServerTime(null);
+    } finally {
+      setLoadingServerTime(false);
+    }
+  }, [toast]);
+
   const fetchSoldData = useCallback(async () => {
     setLoading(true);
     const allSoldPromises: Promise<DetailedSoldData>[] = [];
 
     const today = new Date();
-    let startDate: Date | null = null;
+    let queryStartDate: Date | null = null;
+    let queryEndDate: Date | null = null;
 
     if (filters.searchDate) {
-      startDate = new Date(filters.searchDate);
+      queryStartDate = new Date(filters.searchDate);
+      queryEndDate = new Date(filters.searchDate); // For a single specific day
     } else {
       switch (filters.dateRange) {
-        case 'daily': startDate = today; break;
-        case 'weekly': startDate = subDays(today, 7); break;
-        case '2-weeks': startDate = subDays(today, 14); break;
-        case 'monthly': startDate = subDays(today, 30); break;
-        case 'yearly': startDate = subDays(today, 365); break;
+        case 'daily':
+          queryStartDate = today;
+          queryEndDate = today;
+          break;
+        case 'weekly':
+          queryStartDate = subDays(today, 7);
+          queryEndDate = today;
+          break;
+        case '2-weeks':
+          queryStartDate = subDays(today, 14);
+          queryEndDate = today;
+          break;
+        case 'monthly':
+          queryStartDate = subDays(today, 30);
+          queryEndDate = today;
+          break;
+        case 'yearly':
+          queryStartDate = subDays(today, 365);
+          queryEndDate = today;
+          break;
         case 'all':
-        default: startDate = null; break;
+        default:
+          // No date filters
+          break;
       }
     }
 
-    const formattedStartDate = startDate ? formatISO(startDate, { representation: 'date' }) : null;
+    const formattedStartDate = queryStartDate ? formatISO(queryStartDate, { representation: 'date' }) : null;
+    const formattedEndDate = queryEndDate ? formatISO(queryEndDate, { representation: 'date' }) : null;
 
     for (const platform of platformOptions) {
       const nominals = getNominalsForPlatform(platform);
@@ -100,9 +143,9 @@ export const SoldOutDisplay = () => {
 
         if (formattedStartDate) {
           query = query.gte('tanggal', formattedStartDate);
-          if (filters.searchDate) {
-            query = query.lte('tanggal', formattedStartDate);
-          }
+        }
+        if (formattedEndDate) {
+          query = query.lte('tanggal', formattedEndDate);
         }
 
         const promise = query.then(({ count, error }) => {
@@ -124,7 +167,10 @@ export const SoldOutDisplay = () => {
 
   useEffect(() => {
     fetchSoldData();
-  }, [fetchSoldData]);
+    fetchServerTime(); // Fetch server time on initial load
+    const interval = setInterval(fetchServerTime, 60 * 1000); // Refresh server time every minute
+    return () => clearInterval(interval);
+  }, [fetchSoldData, fetchServerTime]);
 
   return (
     <div className="w-full max-w-4xl">
@@ -207,6 +253,15 @@ export const SoldOutDisplay = () => {
                 </CardContent>
               </Card>
             ))}
+      </div>
+      <div className="text-center text-sm text-muted-foreground mt-8">
+        {loadingServerTime ? (
+          <span>Memuat waktu server...</span>
+        ) : serverTime ? (
+          <span>Waktu Server: {new Date(serverTime).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'long' })}</span>
+        ) : (
+          <span>Gagal memuat waktu server.</span>
+        )}
       </div>
     </div>
   );
