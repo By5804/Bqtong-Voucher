@@ -78,12 +78,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
   }, [platform, nominal, toast]);
 
   const fetchExternalStock = useCallback(async () => {
-    if (platform === "wahyu" || platform === "Itemku Steam Game Key") {
-      setExternalStock('N/A');
-      setLoadingExternalStock(false);
-      return;
-    }
-
+    // Menghapus logika khusus untuk "wahyu" atau "Itemku Steam Game Key"
     if (!platform || !nominal) {
       setExternalStock(null);
       setLoadingExternalStock(false);

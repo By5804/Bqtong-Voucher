@@ -74,7 +74,7 @@ export const StockDisplay = () => {
     
     const initialData = internalResults.map(item => ({ 
       ...item, 
-      external: item.platform === "wahyu" || item.platform === "Itemku Steam Game Key" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
+      external: item.platform === "wahyu" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG" || item.platform === "Itemku Steam Game Key") ? null : 'N/A' as const 
     }));
     setStock(initialData);
     setLoadingInternal(false);
@@ -83,7 +83,7 @@ export const StockDisplay = () => {
   const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform, setLoading: (loading: boolean) => void) => {
     setLoading(true);
     
-    if (targetPlatform === "wahyu" || targetPlatform === "Itemku Steam Game Key") {
+    if (targetPlatform === "wahyu") { // Hanya "wahyu" yang tidak memiliki pengecekan stok eksternal
       setStock(prevStock => 
         prevStock.map(s => 
           s.platform === targetPlatform ? { ...s, external: 'N/A' } : s

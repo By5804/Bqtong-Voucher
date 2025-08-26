@@ -23,13 +23,8 @@ serve(async (req) => {
       });
     }
 
-    // Jika platform adalah "Itemku Steam Game Key", tidak ada stok eksternal yang bisa dicek
-    if (platform === "Itemku Steam Game Key") {
-      return new Response(JSON.stringify({ stock: "N/A" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    }
+    // Logika khusus untuk "Itemku Steam Game Key" yang mengembalikan "N/A" dihapus.
+    // Sekarang, platform ini akan mencoba memanggil API Itemku seperti platform lainnya.
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -60,7 +55,7 @@ serve(async (req) => {
 
     const scrapeUrl = "https://api-gateway.itemku.com/v1/product";
     
-    const itemkuApiParams = {
+    const itemkuApiParams: Record<string, string> = {
       game_id: productMapping.game_id.toString(),
       item_type_id: productMapping.item_type_id.toString(),
       item_info_group_id: productMapping.item_info_group_id.toString(),
@@ -93,7 +88,7 @@ serve(async (req) => {
 
 
     const url = new URL(scrapeUrl);
-    url.search = new URLSearchParams(itemkuApiParams as Record<string, string>).toString();
+    url.search = new URLSearchParams(itemkuApiParams).toString();
 
     console.log('Calling Itemku API with URL:', url.toString());
 
