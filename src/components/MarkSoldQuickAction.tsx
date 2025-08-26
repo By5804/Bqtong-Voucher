@@ -71,15 +71,17 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   }, [platform, nominal, toast]);
 
   const fetchExternalStock = useCallback(async () => {
-    if (!platform || !nominal) {
-      setExternalStock(null);
-      return;
-    }
-
-    // Only fetch external stock for Itemku and LG
+    // Handle Wahyu first, regardless of nominal selection
     if (platform === "wahyu") {
       setExternalStock('N/A');
       setLoadingExternalStock(false);
+      return;
+    }
+
+    // If platform or nominal is not selected for other platforms, set to null
+    if (!platform || !nominal) {
+      setExternalStock(null);
+      setLoadingExternalStock(false); // Ensure loading is false
       return;
     }
 
