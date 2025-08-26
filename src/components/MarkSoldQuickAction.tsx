@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { Tag } from "lucide-react";
+import { Tag, RefreshCw } from "lucide-react"; // Import RefreshCw for loading spinner
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton for loading state
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku"];
@@ -37,6 +38,8 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   const [nominal, setNominal] = useState<string | ''>('');
   const [loading, setLoading] = useState(false);
   const [availableStock, setAvailableStock] = useState<number | null>(null);
+  const [externalStock, setExternalStock] = useState<number | 'N/A' | 'loading' | null>(null);
+  const [loadingExternalStock, setLoadingExternalStock] = useState(false);
   const [remainingStockInput, setRemainingStockInput] = useState<string>(''); // User input for stock on platform
   const [quantityToMarkSold, setQuantityToMarkSold] = useState<number>(1); // The actual quantity to submit
   const [isQuantityCalculated, setIsQuantityCalculated] = useState(false); // To control readOnly state
@@ -67,6 +70,39 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
     }
   }, [platform, nominal, toast]);
 
+  const fetchExternalStock = useCallback(async () => {
+    if (platform && nominal) {
+      setLoadingExternalStock(true);
+      setExternalStock('loading');
+      try {
+        const { data, error } = await supabase.functions.invoke('check-external-stock', {
+          body: { platform, nominal: parseInt(nominal, 10) },
+        });
+
+        if (error) {
+          console.error(`Frontend error for ${platform} ${nominal}:`, error);
+          if (error.status === 404 && error.context?.body) {
+              const errorBody = JSON.parse(error.context.body);
+              toast({ title: "Error", description: errorBody.error, variant: "destructive" });
+          } else {
+              toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${error.message}`, variant: "destructive" });
+          }
+          setExternalStock('N/A');
+        } else {
+          setExternalStock(data.stock);
+        }
+      } catch (err: any) {
+        console.error(`General catch error for ${platform} ${nominal}:`, err);
+        toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${err.message}`, variant: "destructive" });
+        setExternalStock('N/A');
+      } finally {
+        setLoadingExternalStock(false);
+      }
+    } else {
+      setExternalStock(null);
+    }
+  }, [platform, nominal, toast]);
+
   useEffect(() => {
     // Reset nominal if the selected platform changes and the current nominal is no longer valid
     if (nominal && !filteredNominalOptions.includes(nominal)) {
@@ -76,10 +112,11 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       setNominal(filteredNominalOptions[0]);
     }
     fetchAvailableStock();
+    fetchExternalStock(); // Fetch external stock when platform/nominal changes
     setRemainingStockInput(''); // Clear remaining stock input on platform/nominal change
     setQuantityToMarkSold(1); // Reset quantity to 1
     setIsQuantityCalculated(false); // Reset calculation status
-  }, [platform, nominal, filteredNominalOptions, fetchAvailableStock]);
+  }, [platform, nominal, filteredNominalOptions, fetchAvailableStock, fetchExternalStock]);
 
   useEffect(() => {
     if (availableStock !== null && remainingStockInput !== '') {
@@ -150,13 +187,55 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       setRemainingStockInput('');
       setQuantityToMarkSold(1);
       setAvailableStock(null);
+      setExternalStock(null); // Reset external stock too
       setIsQuantityCalculated(false);
       onClose(); // Close the dialog after successful update
     }
     setLoading(false);
   };
 
+  const handleMatchStock = async () => {
+    if (!platform || !nominal || availableStock === null || externalStock === null || externalStock === 'N/A' || externalStock === 'loading') {
+      toast({ title: "Error", description: "Harap pilih platform dan nominal, dan pastikan stok eksternal sudah dimuat.", variant: "destructive" });
+      return;
+    }
+
+    if (typeof externalStock !== 'number') {
+      toast({ title: "Error", description: "Stok eksternal tidak valid.", variant: "destructive" });
+      return;
+    }
+
+    if (externalStock >= availableStock) {
+      toast({ title: "Info", description: "Stok internal sudah sama atau lebih rendah dari stok eksternal. Tidak ada yang perlu ditandai terjual.", variant: "default" });
+      return;
+    }
+
+    const quantityToMarkSoldCalculated = availableStock - externalStock;
+
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke('mark-vouchers-sold', {
+      body: { platform, nominal: parseInt(nominal, 10), quantity: quantityToMarkSoldCalculated },
+    });
+
+    if (error) {
+      toast({ title: "Error", description: `Gagal mengupdate: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ title: "Sukses", description: `${data.updatedCount} voucher berhasil ditandai terjual untuk menyamakan stok.` });
+      // Reset form and close dialog
+      setPlatform('');
+      setNominal('');
+      setRemainingStockInput('');
+      setQuantityToMarkSold(1);
+      setAvailableStock(null);
+      setExternalStock(null); // Reset external stock too
+      setIsQuantityCalculated(false);
+      onClose();
+    }
+    setLoading(false);
+  };
+
   const isSubmitDisabled = loading || !platform || !nominal || quantityToMarkSold <= 0 || (availableStock !== null && quantityToMarkSold > availableStock);
+  const isMatchStockDisabled = loading || loadingExternalStock || !platform || !nominal || availableStock === null || externalStock === null || externalStock === 'N/A' || externalStock === 'loading' || (typeof externalStock === 'number' && externalStock >= availableStock);
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -181,6 +260,18 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       <div className="md:col-span-2">
         <Label className="block text-sm font-medium mb-1">
           Stok Tersedia di Database: {availableStock !== null ? availableStock : 'Memuat...'}
+        </Label>
+      </div>
+      <div className="md:col-span-2">
+        <Label className="block text-sm font-medium mb-1">
+          Stok Eksternal: 
+          {externalStock === null ? (
+            <span className="text-sm text-muted-foreground ml-2">Pilih Platform & Nominal</span>
+          ) : externalStock === 'loading' ? (
+            <Skeleton className="h-4 w-16 inline-block align-middle ml-2" />
+          ) : (
+            <span className="font-semibold ml-2">{externalStock}</span>
+          )}
         </Label>
       </div>
       <div className="md:col-span-2">
@@ -209,6 +300,20 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
       <Button type="submit" disabled={isSubmitDisabled} className="w-full md:col-span-2">
         {loading ? "Memproses..." : "Update Terjual"}
       </Button>
+      <Button 
+        type="button" 
+        onClick={handleMatchStock} 
+        disabled={isMatchStockDisabled}
+        className="w-full md:col-span-2 bg-blue-600 hover:bg-blue-700"
+      >
+        {loadingExternalStock ? (
+          <>
+            <RefreshCw className="h-4 w-4 animate-spin mr-2" /> Memuat Stok Eksternal...
+          </>
+        ) : (
+          "Samakan Stok dengan Eksternal"
+        )}
+      </Button>
     </form>
   );
 };
@@ -227,7 +332,7 @@ export const MarkSoldQuickAction = () => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Tandai Voucher Terjual</DialogTitle> {/* Perbaikan di sini */}
+          <DialogTitle>Tandai Voucher Terjual</DialogTitle>
           <DialogDescription>
             Pilih platform, nominal, dan jumlah voucher yang terjual. Sistem akan otomatis mengambil voucher tertua (FIFO).
           </DialogDescription>
