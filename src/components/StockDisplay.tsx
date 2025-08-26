@@ -159,54 +159,6 @@ export const StockDisplay = () => {
       <div className="w-full max-w-4xl">
         <h2 className="text-2xl font-bold text-center mb-4">Stok Voucher Tersedia</h2>
         
-        <div className="flex justify-center mb-6 gap-4 flex-wrap">
-          <Button 
-            onClick={fetchExternalStockLG} 
-            disabled={loadingExternalLG}
-            className="flex items-center gap-2"
-          >
-            {loadingExternalLG ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok LG...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" /> Refresh Stok LG
-              </>
-            )}
-          </Button>
-          <Button 
-            onClick={fetchExternalStockItemku} 
-            disabled={loadingExternalItemku}
-            className="flex items-center gap-2"
-          >
-            {loadingExternalItemku ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Itemku...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" /> Refresh Stok Itemku
-              </>
-            )}
-          </Button>
-          <Button 
-            onClick={fetchExternalStockItemkuSteam} 
-            disabled={loadingExternalItemkuSteam}
-            className="flex items-center gap-2"
-          >
-            {loadingExternalItemkuSteam ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin" /> Memuat Stok Itemku Steam...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" /> Refresh Stok Itemku Steam
-              </>
-            )}
-          </Button>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {loadingInternal
             ? platformOptions.map((p) => (
@@ -224,8 +176,56 @@ export const StockDisplay = () => {
               ))
             : platformOptions.map((platform) => (
                 <Card key={platform}>
-                  <CardHeader>
-                    <CardTitle>{platform}</CardTitle>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-lg font-medium">{platform}</CardTitle>
+                    {platform === "LG" && (
+                      <Button 
+                        onClick={fetchExternalStockLG} 
+                        disabled={loadingExternalLG}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        {loadingExternalLG ? (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                        Refresh
+                      </Button>
+                    )}
+                    {platform === "Itemku" && (
+                      <Button 
+                        onClick={fetchExternalStockItemku} 
+                        disabled={loadingExternalItemku}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        {loadingExternalItemku ? (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                        Refresh
+                      </Button>
+                    )}
+                    {platform === "Itemku Steam Game Key" && (
+                      <Button 
+                        onClick={fetchExternalStockItemkuSteam} 
+                        disabled={loadingExternalItemkuSteam}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        {loadingExternalItemkuSteam ? (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                        Refresh
+                      </Button>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {stock
