@@ -66,7 +66,8 @@ export const StockDisplay = () => {
     
     const initialData = internalResults.map(item => ({ 
       ...item, 
-      external: (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
+      // Initialize external stock to 'N/A' for 'wahyu', null for LG/Itemku (to be fetched), and 'N/A' for others
+      external: item.platform === "wahyu" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG") ? null : 'N/A' as const 
     }));
     setStock(initialData);
     setLoadingInternal(false);
@@ -76,6 +77,17 @@ export const StockDisplay = () => {
   const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform, setLoading: (loading: boolean) => void) => {
     setLoading(true);
     
+    // If platform is 'wahyu', set external stock to 'N/A' immediately
+    if (targetPlatform === "wahyu") {
+      setStock(prevStock => 
+        prevStock.map(s => 
+          s.platform === targetPlatform ? { ...s, external: 'N/A' } : s
+        )
+      );
+      setLoading(false);
+      return;
+    }
+
     setStock(prevStock => 
       prevStock.map(s => 
         s.platform === targetPlatform ? { ...s, external: 'loading' } : s

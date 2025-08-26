@@ -71,35 +71,43 @@ const UpdateSoldVouchersForm = ({ onClose }: { onClose: () => void }) => {
   }, [platform, nominal, toast]);
 
   const fetchExternalStock = useCallback(async () => {
-    if (platform && nominal) {
-      setLoadingExternalStock(true);
-      setExternalStock('loading');
-      try {
-        const { data, error } = await supabase.functions.invoke('check-external-stock', {
-          body: { platform, nominal: parseInt(nominal, 10) },
-        });
-
-        if (error) {
-          console.error(`Frontend error for ${platform} ${nominal}:`, error);
-          if (error.status === 404 && error.context?.body) {
-              const errorBody = JSON.parse(error.context.body);
-              toast({ title: "Error", description: errorBody.error, variant: "destructive" });
-          } else {
-              toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${error.message}`, variant: "destructive" });
-          }
-          setExternalStock('N/A');
-        } else {
-          setExternalStock(data.stock);
-        }
-      } catch (err: any) {
-        console.error(`General catch error for ${platform} ${nominal}:`, err);
-        toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${err.message}`, variant: "destructive" });
-        setExternalStock('N/A');
-      } finally {
-        setLoadingExternalStock(false);
-      }
-    } else {
+    if (!platform || !nominal) {
       setExternalStock(null);
+      return;
+    }
+
+    // Only fetch external stock for Itemku and LG
+    if (platform === "wahyu") {
+      setExternalStock('N/A');
+      setLoadingExternalStock(false);
+      return;
+    }
+
+    setLoadingExternalStock(true);
+    setExternalStock('loading');
+    try {
+      const { data, error } = await supabase.functions.invoke('check-external-stock', {
+        body: { platform, nominal: parseInt(nominal, 10) },
+      });
+
+      if (error) {
+        console.error(`Frontend error for ${platform} ${nominal}:`, error);
+        if (error.status === 404 && error.context?.body) {
+            const errorBody = JSON.parse(error.context.body);
+            toast({ title: "Error", description: errorBody.error, variant: "destructive" });
+        } else {
+            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${error.message}`, variant: "destructive" });
+        }
+        setExternalStock('N/A');
+      } else {
+        setExternalStock(data.stock);
+      }
+    } catch (err: any) {
+      console.error(`General catch error for ${platform} ${nominal}:`, err);
+      toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${err.message}`, variant: "destructive" });
+      setExternalStock('N/A');
+    } finally {
+      setLoadingExternalStock(false);
     }
   }, [platform, nominal, toast]);
 
