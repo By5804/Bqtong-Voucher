@@ -15,7 +15,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
 type Platform = "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
@@ -33,11 +32,11 @@ const formatNominalDisplay = (nominal: string | number) => {
 
 const getFilteredNominalOptions = (platform: Platform | '') => {
   if (platform === "Itemku") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
+    return ["50000", "65000", "100000", "200000", "300000", "500000"];
   } else if (platform === "LG" || platform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+    return ["50000", "65000", "200000"];
   } else if (platform === "Itemku Steam Game Key") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
+    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
   }
   return [];
 };

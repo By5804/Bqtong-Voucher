@@ -12,7 +12,6 @@ import { Database } from "@/integrations/supabase/types";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
@@ -37,11 +36,11 @@ type StockData = {
 
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
+    return ["50000", "65000", "100000", "200000", "300000", "500000"];
   } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+    return ["50000", "65000", "200000"];
   } else if (currentPlatform === "Itemku Steam Game Key") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
+    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
   }
   return []; 
 };

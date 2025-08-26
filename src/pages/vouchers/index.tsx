@@ -24,7 +24,6 @@ type Status = Database['public']['Tables']['vouchers']['Row']['status'];
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
 const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment"];
 const statusOptions: Status[] = ["available", "sold"];
-const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
@@ -42,13 +41,17 @@ const formatNominalDisplay = (nominal: string | number) => {
 
 const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') => {
   if (platformFilter === "Itemku") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => !n.includes("Random Steam Key"));
+    return ["50000", "65000", "100000", "200000", "300000", "500000"];
   } else if (platformFilter === "LG" || platformFilter === "wahyu") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => ["50000", "65000", "200000"].includes(n));
+    return ["50000", "65000", "200000"];
   } else if (platformFilter === "Itemku Steam Game Key") {
-    return ALL_NOMINAL_OPTIONS_STR.filter(n => n.includes("Random Steam Key"));
+    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
   }
-  return ALL_NOMINAL_OPTIONS_STR;
+  // If 'all' platforms are selected, return a comprehensive list of all possible nominals
+  return [
+    "100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000",
+    "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"
+  ];
 };
 
 export default function VoucherPage() {
