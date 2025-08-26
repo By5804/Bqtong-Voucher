@@ -19,9 +19,11 @@ import { useNavigate } from "react-router-dom";
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
+type Status = Database['public']['Tables']['vouchers']['Row']['status'];
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
 const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment"];
+const statusOptions: Status[] = ["available", "sold"];
 const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
@@ -64,7 +66,8 @@ export default function VoucherPage() {
     searchCode: '',
     platform: 'all',
     source: 'all',
-    nominal: 'all'
+    nominal: 'all',
+    status: 'all' // New status filter
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,7 +114,8 @@ export default function VoucherPage() {
     if (filters.searchCode) query = query.ilike('code', `%${filters.searchCode}%`);
     if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
     if (filters.source !== 'all') query = query.eq('source', filters.source);
-    if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal); // Nominal sekarang string
+    if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal);
+    if (filters.status !== 'all') query = query.eq('status', filters.status); // Apply status filter
 
     const { data, error, count } = await query;
 
@@ -140,7 +144,7 @@ export default function VoucherPage() {
   };
 
   const clearFilters = () => {
-    setFilters({ searchDate: '', dateRange: 'all', searchCode: '', platform: 'all', source: 'all', nominal: 'all' });
+    setFilters({ searchDate: '', dateRange: 'all', searchCode: '', platform: 'all', source: 'all', nominal: 'all', status: 'all' });
     setCurrentPage(1);
   }
 
@@ -234,7 +238,17 @@ export default function VoucherPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="lg:col-span-3">
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select value={filters.status} onValueChange={value => handleFilterChange('status', value)}>
+                  <SelectTrigger id="status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    {statusOptions.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="lg:col-span-2"> {/* Adjusted span for better layout */}
                 <Label htmlFor="search-code">Cari Kode Voucher</Label>
                 <Input id="search-code" placeholder="Masukkan kode voucher..." value={filters.searchCode} onChange={e => handleFilterChange('searchCode', e.target.value)} />
               </div>
@@ -270,6 +284,7 @@ export default function VoucherPage() {
                     <TableHead>Kode Voucher</TableHead>
                     <TableHead>Platform</TableHead>
                     <TableHead>Source</TableHead>
+                    <TableHead>Status</TableHead> {/* New Status Column */}
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -284,6 +299,13 @@ export default function VoucherPage() {
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
                       <TableCell>{voucher.source || '-'}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          voucher.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {voucher.status === 'available' ? 'Tersedia' : 'Terjual'}
+                        </span>
+                      </TableCell> {/* Display Status */}
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => { setSelectedVouchers([voucher.id]); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>

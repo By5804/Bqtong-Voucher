@@ -17,6 +17,7 @@ type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
 
+const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
 const ALL_NOMINAL_OPTIONS_STR = ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000", "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
 
 const formatNominalDisplay = (nominal: string | number) => {
@@ -183,10 +184,7 @@ const InputVouchersPage = () => {
                 <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading}>
                   <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih Provider" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="LG">Lapakgaming</SelectItem>
-                    <SelectItem value="wahyu">Wahyu</SelectItem>
-                    <SelectItem value="Itemku">Itemku</SelectItem>
-                    <SelectItem value="Itemku Steam Game Key">Itemku Steam Game Key</SelectItem>
+                    {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
