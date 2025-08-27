@@ -12,7 +12,7 @@ import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { subDays, formatISO } from "date-fns";
 import { Trash2, ArrowLeft } from "lucide-react"; 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 
@@ -77,6 +77,9 @@ export default function VoucherPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalVouchers, setTotalVouchers] = useState(0);
 
+  const [pinInput, setPinInput] = useState<string>('');
+  const [validatedPin, setValidatedPin] = useState<string | null>(null); // Stores the successfully validated PIN
+
   const filteredNominalOptionsForFilter = useMemo(() => getFilteredNominalOptionsForFilter(filters.platform), [filters.platform]);
 
   useEffect(() => {
@@ -86,64 +89,50 @@ export default function VoucherPage() {
   }, [filters.platform, filters.nominal, filteredNominalOptionsForFilter]);
 
   const fetchVouchers = useCallback(async () => {
+    if (!validatedPin) {
+      setVouchers([]);
+      setTotalVouchers(0);
+      return;
+    }
+
     setLoading(true);
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    let query = supabase
-      .from('vouchers')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-vouchers-with-pin', {
+        body: {
+          pin: validatedPin,
+          filters,
+          from,
+          to,
+        },
+      });
 
-    if (filters.searchDate) {
-      query = query.eq('tanggal', filters.searchDate);
-    } else if (filters.dateRange !== 'all') {
-      const today = new Date();
-      let startDate: Date;
-      switch (filters.dateRange) {
-        case 'daily':
-          startDate = today;
-          break;
-        case 'weekly':
-          startDate = subDays(today, 7);
-          break;
-        case '2-weeks':
-          startDate = subDays(today, 14);
-          break;
-        case 'monthly':
-          startDate = subDays(today, 30);
-          break;
-        case 'yearly':
-          startDate = subDays(today, 365);
-          break;
-        default:
-          startDate = today; // Fallback, though 'all' is handled by no date filter
+      if (error) {
+        console.error("Error fetching vouchers:", error);
+        if (error.status === 401) {
+          toast({ title: "Error", description: "PIN tampilan salah atau sesi berakhir. Harap masukkan PIN lagi.", variant: "destructive" });
+          setValidatedPin(null); // Reset PIN to force re-entry
+        } else {
+          toast({ title: "Error", description: `Gagal memuat voucher: ${error.message}`, variant: "destructive" });
+        }
+        setVouchers([]);
+        setTotalVouchers(0);
+      } else {
+        setVouchers(data.data || []);
+        setTotalVouchers(data.count || 0);
       }
-      query = query.gte('tanggal', formatISO(startDate, { representation: 'date' }));
-      query = query.lte('tanggal', formatISO(today, { representation: 'date' }));
-    }
-
-    if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
-    if (filters.source !== 'all') query = query.eq('source', filters.source);
-    if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal);
-    if (filters.status !== 'all') query = query.eq('status', filters.status);
-    if (filters.searchCode) query = query.ilike('code', `%${filters.searchCode}%`); // Search plain text code
-
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      toast({ title: "Error", description: `Gagal memuat voucher: ${error.message}`, variant: "destructive" });
+    } catch (err: any) {
+      console.error("General error fetching vouchers:", err);
+      toast({ title: "Error", description: `Terjadi kesalahan saat memuat voucher: ${err.message}`, variant: "destructive" });
       setVouchers([]);
       setTotalVouchers(0);
-    } else {
-      setVouchers(data || []);
-      setTotalVouchers(count || 0);
+    } finally {
+      setLoading(false);
+      setSelectedVouchers([]);
     }
-    setLoading(false);
-    setSelectedVouchers([]);
-  }, [currentPage, itemsPerPage, filters, toast]);
+  }, [currentPage, itemsPerPage, filters, validatedPin, toast]);
 
   useEffect(() => {
     fetchVouchers();
@@ -188,7 +177,73 @@ export default function VoucherPage() {
     setIsDeleteDialogOpen(false);
   };
 
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pinInput.trim()) {
+      toast({ title: "Error", description: "PIN tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('fetch-vouchers-with-pin', {
+        body: { pin: pinInput, filters: {}, from: 0, to: 0 }, // Just for PIN validation
+      });
+
+      if (error) {
+        console.error("PIN validation error:", error);
+        toast({ title: "Error", description: "PIN salah. Silakan coba lagi.", variant: "destructive" });
+        setPinInput('');
+      } else {
+        setValidatedPin(pinInput);
+        toast({ title: "Sukses", description: "PIN diterima. Memuat voucher..." });
+      }
+    } catch (err: any) {
+      console.error("General PIN validation error:", err);
+      toast({ title: "Error", description: `Terjadi kesalahan saat memvalidasi PIN: ${err.message}`, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalVouchers / itemsPerPage);
+
+  if (!validatedPin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle>Akses Manajemen Voucher</CardTitle>
+            </div>
+            <CardDescription>Masukkan PIN untuk melihat dan mengelola daftar voucher.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="pin-input">PIN</Label>
+                <Input
+                  id="pin-input"
+                  type="password"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="Masukkan PIN Anda"
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Memverifikasi..." : "Masuk"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
