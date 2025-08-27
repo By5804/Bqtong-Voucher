@@ -10,13 +10,14 @@ export type Database = {
           platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
           source: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
           status: 'available' | 'sold';
+          code: string; // Tetap string di client karena akan didekripsi sebelum ditampilkan
         };
         Insert: {
           id?: string;
           created_at?: string;
           tanggal: string;
           nominal: string; // Diubah dari number menjadi string
-          code: string;
+          code: string; // Tetap string di client karena akan dienkripsi sebelum disimpan
           platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
           source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
           status?: 'available' | 'sold';
@@ -26,7 +27,7 @@ export type Database = {
           created_at?: string;
           tanggal?: string;
           nominal?: string; // Diubah dari number menjadi string
-          code?: string;
+          code?: string; // Tetap string di client karena akan dienkripsi sebelum disimpan
           platform?: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
           source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
           status?: 'available' | 'sold';
@@ -68,6 +69,29 @@ export type Database = {
           product_id?: string;
           created_at?: string;
           store_name?: string | null;
+        };
+      };
+      profiles: {
+        Row: {
+          id: string;
+          first_name: string | null;
+          last_name: string | null;
+          avatar_url: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          avatar_url?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          avatar_url?: string | null;
+          updated_at?: string | null;
         };
       };
     };

@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { subDays, formatISO } from "date-fns";
-import { Trash2, ArrowLeft } from "lucide-react";
+import { Trash2, ArrowLeft, Lock, Unlock } from "lucide-react"; // Added Lock and Unlock icons
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
@@ -60,13 +60,15 @@ export default function VoucherPage() {
   const [loading, setLoading] = useState(false);
   const [selectedVouchers, setSelectedVouchers] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [decryptionPin, setDecryptionPin] = useState(""); // New state for decryption PIN
+  const [isPinEntered, setIsPinEntered] = useState(false); // To track if PIN has been successfully used
   const { toast } = useToast();
   const navigate = useNavigate();
   
   const [filters, setFilters] = useState({
     searchDate: '',
     dateRange: 'all',
-    searchCode: '',
+    searchCode: '', // This will be ignored for encrypted codes
     platform: 'all',
     source: 'all',
     nominal: 'all',
@@ -90,50 +92,41 @@ export default function VoucherPage() {
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    let query = supabase
-      .from('vouchers')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
+    // Prepare filters for the Edge Function
+    const edgeFunctionFilters = { ...filters };
+    delete edgeFunctionFilters.searchCode; // Cannot search encrypted codes directly
 
-    if (filters.searchDate) {
-      query = query.eq('tanggal', filters.searchDate);
-    } else if (filters.dateRange !== 'all') {
-      const today = new Date();
-      let startDate;
-      switch (filters.dateRange) {
-        case 'daily': startDate = today; break;
-        case 'weekly': startDate = subDays(today, 7); break;
-        case '2-weeks': startDate = subDays(today, 14); break;
-        case 'monthly': startDate = subDays(today, 30); break;
-        case 'yearly': startDate = subDays(today, 365); break;
-      }
-      if (startDate) {
-        query = query.gte('tanggal', formatISO(startDate, { representation: 'date' }));
-      }
-    }
-
-    if (filters.searchCode) query = query.ilike('code', `%${filters.searchCode}%`);
-    if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
-    if (filters.source !== 'all') query = query.eq('source', filters.source);
-    if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal);
-    if (filters.status !== 'all') query = query.eq('status', filters.status);
-
-    const { data, error, count } = await query;
+    const { data, error } = await supabase.functions.invoke('decrypt-vouchers', {
+      body: { 
+        encryptionKey: decryptionPin, 
+        filters: edgeFunctionFilters,
+        from,
+        to
+      },
+    });
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: `Gagal memuat voucher: ${error.message}. Pastikan PIN dekripsi benar.`, variant: "destructive" });
+      setVouchers([]);
+      setTotalVouchers(0);
+      setIsPinEntered(false);
     } else {
-      setVouchers(data || []);
-      setTotalVouchers(count || 0);
+      setVouchers(data.data || []);
+      setTotalVouchers(data.count || 0);
+      setIsPinEntered(true);
     }
     setLoading(false);
     setSelectedVouchers([]);
-  }, [currentPage, itemsPerPage, filters, toast]);
+  }, [currentPage, itemsPerPage, filters, decryptionPin, toast]);
 
   useEffect(() => {
-    fetchVouchers();
-  }, [fetchVouchers]);
+    if (isPinEntered) { // Only fetch if PIN has been successfully entered
+      fetchVouchers();
+    } else {
+      setVouchers([]); // Clear vouchers if PIN is not entered or incorrect
+      setTotalVouchers(0);
+    }
+  }, [fetchVouchers, isPinEntered]);
 
   const handleFilterChange = (key: keyof typeof filters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -142,7 +135,11 @@ export default function VoucherPage() {
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
-    fetchVouchers();
+    if (isPinEntered) {
+      fetchVouchers();
+    } else {
+      toast({ title: "Peringatan", description: "Harap masukkan PIN dekripsi terlebih dahulu.", variant: "default" });
+    }
   };
 
   const clearFilters = () => {
@@ -169,12 +166,22 @@ export default function VoucherPage() {
       toast({ title: "Error", description: `Gagal menghapus voucher: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `${selectedVouchers.length} voucher berhasil dihapus.` });
-      fetchVouchers();
+      fetchVouchers(); // Re-fetch after deletion
     }
     setIsDeleteDialogOpen(false);
   };
 
   const totalPages = Math.ceil(totalVouchers / itemsPerPage);
+
+  const handleDecryptAndFetch = () => {
+    if (!decryptionPin.trim()) {
+      toast({ title: "Error", description: "PIN Dekripsi tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
+    setIsPinEntered(true); // Attempt to fetch with the provided PIN
+    setCurrentPage(1);
+    fetchVouchers();
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -192,11 +199,11 @@ export default function VoucherPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label htmlFor="search-date">Tanggal Spesifik</Label>
-                <Input id="search-date" type="date" value={filters.searchDate} onChange={e => handleFilterChange('searchDate', e.target.value)} />
+                <Input id="search-date" type="date" value={filters.searchDate} onChange={e => handleFilterChange('searchDate', e.target.value)} disabled={!isPinEntered} />
               </div>
               <div>
                 <Label htmlFor="date-range">Rentang Waktu</Label>
-                <Select value={filters.dateRange} onValueChange={value => handleFilterChange('dateRange', value)}>
+                <Select value={filters.dateRange} onValueChange={value => handleFilterChange('dateRange', value)} disabled={!isPinEntered}>
                   <SelectTrigger id="date-range"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua</SelectItem>
@@ -210,7 +217,7 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="platform">Platform</Label>
-                <Select value={filters.platform} onValueChange={value => handleFilterChange('platform', value)}>
+                <Select value={filters.platform} onValueChange={value => handleFilterChange('platform', value)} disabled={!isPinEntered}>
                   <SelectTrigger id="platform"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Platform</SelectItem>
@@ -220,7 +227,7 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="source">Source</Label>
-                <Select value={filters.source} onValueChange={value => handleFilterChange('source', value)}>
+                <Select value={filters.source} onValueChange={value => handleFilterChange('source', value)} disabled={!isPinEntered}>
                   <SelectTrigger id="source"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Source</SelectItem>
@@ -230,7 +237,7 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="nominal">Nominal</Label>
-                <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)} disabled={!filters.platform}>
+                <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)} disabled={!filters.platform || !isPinEntered}>
                   <SelectTrigger id="nominal"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Nominal</SelectItem>
@@ -242,7 +249,7 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
-                <Select value={filters.status} onValueChange={value => handleFilterChange('status', value)}>
+                <Select value={filters.status} onValueChange={value => handleFilterChange('status', value)} disabled={!isPinEntered}>
                   <SelectTrigger id="status"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
@@ -252,12 +259,12 @@ export default function VoucherPage() {
               </div>
               <div className="lg:col-span-2">
                 <Label htmlFor="search-code">Cari Kode Voucher</Label>
-                <Input id="search-code" placeholder="Masukkan kode voucher..." value={filters.searchCode} onChange={e => handleFilterChange('searchCode', e.target.value)} />
+                <Input id="search-code" placeholder="Pencarian kode tidak tersedia untuk voucher terenkripsi" value={filters.searchCode} onChange={e => handleFilterChange('searchCode', e.target.value)} disabled={true} />
               </div>
             </div>
             <div className="flex gap-4">
-              <Button type="submit">Terapkan Filter</Button>
-              <Button type="button" variant="outline" onClick={clearFilters}>Hapus Filter</Button>
+              <Button type="submit" disabled={!isPinEntered}>Terapkan Filter</Button>
+              <Button type="button" variant="outline" onClick={clearFilters} disabled={!isPinEntered}>Hapus Filter</Button>
             </div>
           </form>
         </CardContent>
@@ -268,14 +275,31 @@ export default function VoucherPage() {
           <div className="flex justify-between items-center">
             <CardTitle>Daftar Voucher ({totalVouchers})</CardTitle>
             {selectedVouchers.length > 0 && (
-              <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+              <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} disabled={!isPinEntered}>
                 <Trash2 className="mr-2 h-4 w-4" /> Hapus ({selectedVouchers.length})
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (<p>Memuat data...</p>) : (
+          {!isPinEntered ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-4">
+              <Lock className="h-12 w-12 text-muted-foreground" />
+              <p className="text-lg text-muted-foreground">Masukkan PIN untuk melihat kode voucher.</p>
+              <div className="flex w-full max-w-sm gap-2">
+                <Input 
+                  type="password" 
+                  placeholder="Masukkan PIN Dekripsi" 
+                  value={decryptionPin} 
+                  onChange={(e) => setDecryptionPin(e.target.value)} 
+                  disabled={loading}
+                />
+                <Button onClick={handleDecryptAndFetch} disabled={loading || !decryptionPin.trim()}>
+                  {loading ? "Memuat..." : <Unlock className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          ) : loading ? (<p>Memuat data...</p>) : (
             <>
               <Table>
                 <TableHeader>

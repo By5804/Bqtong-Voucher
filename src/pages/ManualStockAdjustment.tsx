@@ -50,6 +50,7 @@ const ManualStockAdjustmentPage = () => {
   const [platform, setPlatform] = useState<Platform>("LG");
   const [nominal, setNominal] = useState("50000");
   const [quantity, setQuantity] = useState<number>(1);
+  const [encryptionPin, setEncryptionPin] = useState(""); // New state for encryption PIN
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
@@ -71,6 +72,10 @@ const ManualStockAdjustmentPage = () => {
       toast({ title: "Error", description: "Harap isi semua field dengan benar.", variant: "destructive" });
       return;
     }
+    if (!encryptionPin.trim()) {
+      toast({ title: "Error", description: "PIN Enkripsi tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
 
     setLoading(true);
     setProgress({ processed: 0, total: quantity });
@@ -82,14 +87,16 @@ const ManualStockAdjustmentPage = () => {
       const chunkCount = Math.min(CHUNK_SIZE, quantity - i);
       const vouchersToInsert: NewVoucher[] = Array.from({ length: chunkCount }).map((_, idx) => ({
         tanggal,
-        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`,
+        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`, // Plain code sent to Edge Function
         platform,
         source: "Manual Adjustment",
         nominal: nominal,
         status: 'available',
       }));
 
-      const { error: insertError } = await supabase.from('vouchers').insert(vouchersToInsert);
+      const { error: insertError } = await supabase.functions.invoke('encrypt-voucher', {
+        body: { vouchers: vouchersToInsert, encryptionKey: encryptionPin },
+      });
 
       if (insertError) {
         toast({ title: "Error Penyimpanan", description: `Gagal menyimpan batch ${i / CHUNK_SIZE + 1}: ${insertError.message}`, variant: "destructive" });
@@ -103,6 +110,7 @@ const ManualStockAdjustmentPage = () => {
 
     toast({ title: "Sukses", description: `${successfulInserts} voucher berhasil ditambahkan secara manual.` });
     setQuantity(1);
+    setEncryptionPin(""); // Clear PIN after successful submission
     setLoading(false);
   };
 
@@ -118,7 +126,7 @@ const ManualStockAdjustmentPage = () => {
             </Button>
             <CardTitle>Penyesuaian Stok Manual</CardTitle>
           </div>
-          <CardDescription>Tambahkan jumlah stok voucher secara manual untuk platform dan nominal tertentu.</CardDescription>
+          <CardDescription>Tambahkan jumlah stok voucher secara manual untuk platform dan nominal tertentu. Kode voucher akan dienkripsi.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -160,6 +168,19 @@ const ManualStockAdjustmentPage = () => {
                 />
               </div>
             </div>
+            <div>
+              <label htmlFor="encryption-pin-input" className="block text-sm font-medium mb-2 text-left">PIN Enkripsi (Penting! Ingat PIN ini)</label>
+              <Input 
+                id="encryption-pin-input" 
+                type="password" 
+                value={encryptionPin} 
+                onChange={(e) => setEncryptionPin(e.target.value)} 
+                placeholder="Masukkan PIN untuk mengenkripsi voucher" 
+                required 
+                disabled={loading} 
+              />
+              <p className="text-xs text-muted-foreground mt-1 text-left">PIN ini akan digunakan untuk mengenkripsi voucher. Anda akan membutuhkannya untuk melihat voucher nanti.</p>
+            </div>
             {loading && (
               <div className="space-y-2">
                 <Progress value={progressValue} className="w-full" />
@@ -168,7 +189,7 @@ const ManualStockAdjustmentPage = () => {
                 </p>
               </div>
             )}
-            <Button type="submit" disabled={loading || !platform || !nominal || quantity <= 0} className="w-full">
+            <Button type="submit" disabled={loading || !platform || !nominal || quantity <= 0 || !encryptionPin.trim()} className="w-full">
               {loading ? `Sedang Memproses...` : `Tambahkan ${quantity > 0 ? `${quantity} ` : ''}Voucher`}
             </Button>
           </form>
