@@ -20,6 +20,7 @@ const formatNominalDisplay = (nominal: string | number) => {
   if (strNominal === "100") return "100 RBX";
   if (strNominal === "200") return "200 RBX";
   if (strNominal === "400") return "400 RBX";
+  if (strNominal === "500") return "500 RBX"; // Added 500 RBX
   if (strNominal.includes("Random Steam Key")) return strNominal;
 
   const numNominal = parseInt(strNominal, 10);
@@ -37,7 +38,7 @@ type DetailedSoldData = {
 
 const getNominalsForPlatform = (currentPlatform: Platform) => {
   if (currentPlatform === "Itemku") {
-    return ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
+    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
   } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
     return ["50000", "65000", "200000"];
   } else if (currentPlatform === "Itemku Steam Game Key") {

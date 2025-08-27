@@ -18,13 +18,14 @@ type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"]; // Menambahkan 'Random'
+const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
   if (strNominal === "100") return "100 RBX";
   if (strNominal === "200") return "200 RBX";
   if (strNominal === "400") return "400 RBX";
+  if (strNominal === "500") return "500 RBX"; // Added 500 RBX
   if (strNominal.includes("Random Steam Key")) return strNominal;
 
   const numNominal = parseInt(strNominal, 10);
@@ -36,7 +37,7 @@ const formatNominalDisplay = (nominal: string | number) => {
 
 const getFilteredNominalOptions = (platform: Platform | '') => {
   if (platform === "Itemku") {
-    return ["100", "200", "400", "50000", "65000", "100000", "200000", "300000", "500000"];
+    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
   } else if (platform === "LG" || platform === "wahyu") {
     return ["50000", "65000", "200000"];
   } else if (platform === "Itemku Steam Game Key") {
