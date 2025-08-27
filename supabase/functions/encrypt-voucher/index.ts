@@ -12,9 +12,13 @@ serve(async (req) => {
   }
 
   try {
-    const { vouchers } = await req.json(); // encryptionKey tidak lagi diterima dari client
+    const { vouchers } = await req.json();
 
-    const encryptionKey = Deno.env.get('VOUCHER_ENCRYPTION_PIN'); // Ambil PIN dari secret
+    const encryptionKey = Deno.env.get('VOUCHER_ENCRYPTION_PIN');
+
+    // --- NEW LOGGING ---
+    console.log('encrypt-voucher: Encryption Key (from env):', encryptionKey ? 'Retrieved (length: ' + encryptionKey.length + ')' : 'Not Retrieved');
+    // --- END NEW LOGGING ---
 
     if (!vouchers || !Array.isArray(vouchers) || vouchers.length === 0 || !encryptionKey) {
       return new Response(JSON.stringify({ error: 'Parameter tidak valid atau PIN enkripsi tidak ditemukan.' }), {

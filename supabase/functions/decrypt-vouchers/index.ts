@@ -14,12 +14,12 @@ serve(async (req) => {
   try {
     const { encryptionKey: clientProvidedPin, filters, from, to } = await req.json();
 
-    const storedEncryptionPin = Deno.env.get('VOUCHER_ENCRYPTION_PIN'); // Ambil PIN dari secret
+    const storedEncryptionPin = Deno.env.get('VOUCHER_ENCRYPTION_PIN');
 
-    // --- DEBUGGING LOG ---
-    console.log('Client provided PIN:', clientProvidedPin ? 'Provided' : 'Not Provided');
-    console.log('Stored encryption PIN:', storedEncryptionPin ? 'Retrieved (length: ' + storedEncryptionPin.length + ')' : 'Not Retrieved');
-    // --- END DEBUGGING LOG ---
+    // --- NEW LOGGING ---
+    console.log('decrypt-vouchers: Client provided PIN:', clientProvidedPin ? 'Provided (length: ' + clientProvidedPin.length + ')' : 'Not Provided');
+    console.log('decrypt-vouchers: Stored encryption PIN (from env):', storedEncryptionPin ? 'Retrieved (length: ' + storedEncryptionPin.length + ')' : 'Not Retrieved');
+    // --- END NEW LOGGING ---
 
     if (!clientProvidedPin || !storedEncryptionPin) {
       return new Response(JSON.stringify({ error: 'PIN dekripsi dibutuhkan atau PIN enkripsi sistem tidak ditemukan.' }), {
@@ -28,12 +28,11 @@ serve(async (req) => {
       });
     }
 
-    // Verifikasi PIN yang diberikan client dengan PIN yang tersimpan di secret
     if (clientProvidedPin !== storedEncryptionPin) {
-      console.warn('PIN mismatch: Client provided PIN does not match stored PIN.');
+      console.warn('decrypt-vouchers: PIN mismatch: Client provided PIN does not match stored PIN.');
       return new Response(JSON.stringify({ error: 'PIN dekripsi salah.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401, // Unauthorized
+        status: 401,
       });
     }
 
@@ -47,7 +46,6 @@ serve(async (req) => {
       .select('*, decrypted_code:code', { count: 'exact' })
       .order('created_at', { ascending: false });
 
-    // Apply filters
     if (filters) {
       if (filters.searchDate) query = query.eq('tanggal', filters.searchDate);
       if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
@@ -56,7 +54,6 @@ serve(async (req) => {
       if (filters.status !== 'all') query = query.eq('status', filters.status);
     }
 
-    // Apply range for pagination
     if (from !== undefined && to !== undefined) {
       query = query.range(from, to);
     }
@@ -71,12 +68,19 @@ serve(async (req) => {
     const decryptedVouchers = await Promise.all(data.map(async (voucher: any) => {
       const { data: decryptedData, error: decryptError } = await supabaseAdmin.rpc('pgp_sym_decrypt', {
         val: voucher.code,
-        key: storedEncryptionPin, // Gunakan PIN dari secret untuk dekripsi
+        key: storedEncryptionPin,
       });
 
+      // --- NEW LOGGING ---
       if (decryptError) {
-        console.warn(`Failed to decrypt voucher ID ${voucher.id}: ${decryptError.message}`);
-        return { ...voucher, code: '[DECRYPTION_FAILED]' }; // Mask if decryption fails
+        console.warn(`decrypt-vouchers: Failed to decrypt voucher ID ${voucher.id}: ${decryptError.message}`);
+      } else {
+        console.log(`decrypt-vouchers: Successfully decrypted voucher ID ${voucher.id}.`);
+      }
+      // --- END NEW LOGGING ---
+
+      if (decryptError) {
+        return { ...voucher, code: '[DECRYPTION_FAILED]' };
       }
       return { ...voucher, code: decryptedData };
     }));
