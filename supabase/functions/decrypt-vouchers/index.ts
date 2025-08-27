@@ -16,6 +16,11 @@ serve(async (req) => {
 
     const storedEncryptionPin = Deno.env.get('VOUCHER_ENCRYPTION_PIN'); // Ambil PIN dari secret
 
+    // --- DEBUGGING LOG ---
+    console.log('Client provided PIN:', clientProvidedPin ? 'Provided' : 'Not Provided');
+    console.log('Stored encryption PIN:', storedEncryptionPin ? 'Retrieved (length: ' + storedEncryptionPin.length + ')' : 'Not Retrieved');
+    // --- END DEBUGGING LOG ---
+
     if (!clientProvidedPin || !storedEncryptionPin) {
       return new Response(JSON.stringify({ error: 'PIN dekripsi dibutuhkan atau PIN enkripsi sistem tidak ditemukan.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -25,6 +30,7 @@ serve(async (req) => {
 
     // Verifikasi PIN yang diberikan client dengan PIN yang tersimpan di secret
     if (clientProvidedPin !== storedEncryptionPin) {
+      console.warn('PIN mismatch: Client provided PIN does not match stored PIN.');
       return new Response(JSON.stringify({ error: 'PIN dekripsi salah.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401, // Unauthorized
