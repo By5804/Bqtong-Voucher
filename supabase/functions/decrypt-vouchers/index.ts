@@ -16,10 +16,10 @@ serve(async (req) => {
 
     const storedEncryptionPin = Deno.env.get('VOUCHER_ENCRYPTION_PIN');
 
-    // --- NEW LOGGING ---
-    console.log('decrypt-vouchers: Client provided PIN:', clientProvidedPin ? 'Provided (length: ' + clientProvidedPin.length + ')' : 'Not Provided');
-    console.log('decrypt-vouchers: Stored encryption PIN (from env):', storedEncryptionPin ? 'Retrieved (length: ' + storedEncryptionPin.length + ')' : 'Not Retrieved');
-    // --- END NEW LOGGING ---
+    // --- LOGGING SENSITIF UNTUK DEBUGGING (HAPUS SETELAH SELESAI) ---
+    console.log('decrypt-vouchers: Raw Client provided PIN:', clientProvidedPin);
+    console.log('decrypt-vouchers: Raw Stored encryption PIN (from env):', storedEncryptionPin);
+    // --- AKHIR LOGGING SENSITIF ---
 
     if (!clientProvidedPin || !storedEncryptionPin) {
       return new Response(JSON.stringify({ error: 'PIN dekripsi dibutuhkan atau PIN enkripsi sistem tidak ditemukan.' }), {
@@ -71,15 +71,8 @@ serve(async (req) => {
         key: storedEncryptionPin,
       });
 
-      // --- NEW LOGGING ---
       if (decryptError) {
         console.warn(`decrypt-vouchers: Failed to decrypt voucher ID ${voucher.id}: ${decryptError.message}`);
-      } else {
-        console.log(`decrypt-vouchers: Successfully decrypted voucher ID ${voucher.id}.`);
-      }
-      // --- END NEW LOGGING ---
-
-      if (decryptError) {
         return { ...voucher, code: '[DECRYPTION_FAILED]' };
       }
       return { ...voucher, code: decryptedData };

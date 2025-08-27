@@ -16,9 +16,9 @@ serve(async (req) => {
 
     const encryptionKey = Deno.env.get('VOUCHER_ENCRYPTION_PIN');
 
-    // --- NEW LOGGING ---
-    console.log('encrypt-voucher: Encryption Key (from env):', encryptionKey ? 'Retrieved (length: ' + encryptionKey.length + ')' : 'Not Retrieved');
-    // --- END NEW LOGGING ---
+    // --- LOGGING SENSITIF UNTUK DEBUGGING (HAPUS SETELAH SELESAI) ---
+    console.log('encrypt-voucher: Raw Encryption Key (from env):', encryptionKey);
+    // --- AKHIR LOGGING SENSITIF ---
 
     if (!vouchers || !Array.isArray(vouchers) || vouchers.length === 0 || !encryptionKey) {
       return new Response(JSON.stringify({ error: 'Parameter tidak valid atau PIN enkripsi tidak ditemukan.' }), {
