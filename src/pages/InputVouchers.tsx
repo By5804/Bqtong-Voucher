@@ -54,7 +54,7 @@ const InputVouchersPage = () => {
   const [platform, setPlatform] = useState<Platform>("LG");
   const [source, setSource] = useState<Source | ''>('');
   const [nominal, setNominal] = useState("50000");
-  const [encryptionPin, setEncryptionPin] = useState(""); // New state for encryption PIN
+  // encryptionPin state dihapus
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
@@ -85,10 +85,7 @@ const InputVouchersPage = () => {
       toast({ title: "Error", description: "Harap pilih Platform dan Nominal.", variant: "destructive" });
       return;
     }
-    if (!encryptionPin.trim()) {
-      toast({ title: "Error", description: "PIN Enkripsi tidak boleh kosong.", variant: "destructive" });
-      return;
-    }
+    // Validasi encryptionPin dihapus
 
     setLoading(true);
     setProgress({ processed: 0, total: voucherCount });
@@ -99,12 +96,6 @@ const InputVouchersPage = () => {
     for (let i = 0; i < codeList.length; i += CHUNK_SIZE) {
       const chunk = codeList.slice(i, i + CHUNK_SIZE);
       
-      // Check for duplicates before encrypting and inserting
-      // Note: Direct duplicate check on encrypted 'code' column is not feasible without decrypting all.
-      // For simplicity, this check will be skipped for now, assuming unique codes are handled by the user
-      // or that duplicates are acceptable if encrypted differently.
-      // A more robust solution would involve a hash of the code or a separate unique identifier.
-
       const vouchersToInsert: NewVoucher[] = chunk.map(code => ({
         tanggal,
         code: code.trim(), // Plain code sent to Edge Function for encryption
@@ -114,7 +105,7 @@ const InputVouchersPage = () => {
       }));
 
       const { data, error: insertError } = await supabase.functions.invoke('encrypt-voucher', {
-        body: { vouchers: vouchersToInsert, encryptionKey: encryptionPin },
+        body: { vouchers: vouchersToInsert }, // encryptionKey tidak lagi dikirim
       });
 
       if (insertError) {
@@ -129,7 +120,7 @@ const InputVouchersPage = () => {
 
     toast({ title: "Sukses", description: `${successfulInserts} dari ${voucherCount} voucher berhasil disimpan.` });
     setCodes("");
-    setEncryptionPin(""); // Clear PIN after successful submission
+    // encryptionPin tidak lagi di-clear
     setLoading(false);
   };
 
@@ -145,7 +136,7 @@ const InputVouchersPage = () => {
             </Button>
             <CardTitle>Input Voucher Massal</CardTitle>
           </div>
-          <CardDescription>Masukkan data voucher pada form di bawah ini. Pisahkan setiap kode voucher dengan baris baru. Kode voucher akan dienkripsi.</CardDescription>
+          <CardDescription>Masukkan data voucher pada form di bawah ini. Pisahkan setiap kode voucher dengan baris baru. Kode voucher akan dienkripsi secara otomatis dengan PIN sistem.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -184,19 +175,7 @@ const InputVouchersPage = () => {
                 </Select>
               </div>
             </div>
-            <div>
-              <label htmlFor="encryption-pin-input" className="block text-sm font-medium mb-2 text-left">PIN Enkripsi (Penting! Ingat PIN ini)</label>
-              <Input 
-                id="encryption-pin-input" 
-                type="password" 
-                value={encryptionPin} 
-                onChange={(e) => setEncryptionPin(e.target.value)} 
-                placeholder="Masukkan PIN untuk mengenkripsi voucher" 
-                required 
-                disabled={loading} 
-              />
-              <p className="text-xs text-muted-foreground mt-1 text-left">PIN ini akan digunakan untuk mengenkripsi voucher. Anda akan membutuhkannya untuk melihat voucher nanti.</p>
-            </div>
+            {/* Input PIN Enkripsi dihapus */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label htmlFor="codes-input" className="block text-sm font-medium text-left">Kode Voucher</label>
@@ -212,7 +191,7 @@ const InputVouchersPage = () => {
                 </p>
               </div>
             )}
-            <Button type="submit" disabled={loading || voucherCount === 0 || !platform || !nominal || !encryptionPin.trim()} className="w-full">
+            <Button type="submit" disabled={loading || voucherCount === 0 || !platform || !nominal} className="w-full">
               {loading ? `Sedang Memproses...` : `Simpan ${voucherCount > 0 ? `${voucherCount} ` : ''}Voucher`}
             </Button>
           </form>

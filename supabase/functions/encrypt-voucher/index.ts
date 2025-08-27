@@ -12,10 +12,12 @@ serve(async (req) => {
   }
 
   try {
-    const { vouchers, encryptionKey } = await req.json();
+    const { vouchers } = await req.json(); // encryptionKey tidak lagi diterima dari client
+
+    const encryptionKey = Deno.env.get('VOUCHER_ENCRYPTION_PIN'); // Ambil PIN dari secret
 
     if (!vouchers || !Array.isArray(vouchers) || vouchers.length === 0 || !encryptionKey) {
-      return new Response(JSON.stringify({ error: 'Parameter tidak valid: vouchers (array) dan encryptionKey dibutuhkan.' }), {
+      return new Response(JSON.stringify({ error: 'Parameter tidak valid atau PIN enkripsi tidak ditemukan.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });

@@ -12,12 +12,22 @@ serve(async (req) => {
   }
 
   try {
-    const { encryptionKey, filters, from, to } = await req.json();
+    const { encryptionKey: clientProvidedPin, filters, from, to } = await req.json();
 
-    if (!encryptionKey) {
-      return new Response(JSON.stringify({ error: 'Parameter tidak valid: encryptionKey dibutuhkan.' }), {
+    const storedEncryptionPin = Deno.env.get('VOUCHER_ENCRYPTION_PIN'); // Ambil PIN dari secret
+
+    if (!clientProvidedPin || !storedEncryptionPin) {
+      return new Response(JSON.stringify({ error: 'PIN dekripsi dibutuhkan atau PIN enkripsi sistem tidak ditemukan.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
+      });
+    }
+
+    // Verifikasi PIN yang diberikan client dengan PIN yang tersimpan di secret
+    if (clientProvidedPin !== storedEncryptionPin) {
+      return new Response(JSON.stringify({ error: 'PIN dekripsi salah.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, // Unauthorized
       });
     }
 
@@ -38,9 +48,6 @@ serve(async (req) => {
       if (filters.source !== 'all') query = query.eq('source', filters.source);
       if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal);
       if (filters.status !== 'all') query = query.eq('status', filters.status);
-      // Note: searchCode cannot be applied directly to encrypted data.
-      // It would require decrypting all codes first, which is inefficient and insecure.
-      // For now, searchCode will be ignored for encrypted data.
     }
 
     // Apply range for pagination
@@ -58,7 +65,7 @@ serve(async (req) => {
     const decryptedVouchers = await Promise.all(data.map(async (voucher: any) => {
       const { data: decryptedData, error: decryptError } = await supabaseAdmin.rpc('pgp_sym_decrypt', {
         val: voucher.code,
-        key: encryptionKey,
+        key: storedEncryptionPin, // Gunakan PIN dari secret untuk dekripsi
       });
 
       if (decryptError) {
