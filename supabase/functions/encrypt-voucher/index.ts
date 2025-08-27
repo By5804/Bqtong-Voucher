@@ -17,7 +17,7 @@ serve(async (req) => {
     const encryptionKey = Deno.env.get('VOUCHER_ENCRYPTION_PIN');
 
     // --- LOGGING SENSITIF UNTUK DEBUGGING (HAPUS SETELAH SELESAI) ---
-    console.log('encrypt-voucher: Raw Encryption Key (from env):', encryptionKey);
+    console.log(`encrypt-voucher: Raw Encryption Key (from env): "${encryptionKey}"`);
     // --- AKHIR LOGGING SENSITIF ---
 
     if (!vouchers || !Array.isArray(vouchers) || vouchers.length === 0 || !encryptionKey) {

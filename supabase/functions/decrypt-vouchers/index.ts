@@ -17,8 +17,8 @@ serve(async (req) => {
     const storedEncryptionPin = Deno.env.get('VOUCHER_ENCRYPTION_PIN');
 
     // --- LOGGING SENSITIF UNTUK DEBUGGING (HAPUS SETELAH SELESAI) ---
-    console.log('decrypt-vouchers: Raw Client provided PIN:', clientProvidedPin);
-    console.log('decrypt-vouchers: Raw Stored encryption PIN (from env):', storedEncryptionPin);
+    console.log(`decrypt-vouchers: Raw Client provided PIN: "${clientProvidedPin}"`);
+    console.log(`decrypt-vouchers: Raw Stored encryption PIN (from env): "${storedEncryptionPin}"`);
     // --- AKHIR LOGGING SENSITIF ---
 
     if (!clientProvidedPin || !storedEncryptionPin) {
