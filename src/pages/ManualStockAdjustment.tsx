@@ -50,7 +50,6 @@ const ManualStockAdjustmentPage = () => {
   const [platform, setPlatform] = useState<Platform>("LG");
   const [nominal, setNominal] = useState("50000");
   const [quantity, setQuantity] = useState<number>(1);
-  // encryptionPin state dihapus
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
@@ -72,7 +71,6 @@ const ManualStockAdjustmentPage = () => {
       toast({ title: "Error", description: "Harap isi semua field dengan benar.", variant: "destructive" });
       return;
     }
-    // Validasi encryptionPin dihapus
 
     setLoading(true);
     setProgress({ processed: 0, total: quantity });
@@ -84,16 +82,16 @@ const ManualStockAdjustmentPage = () => {
       const chunkCount = Math.min(CHUNK_SIZE, quantity - i);
       const vouchersToInsert: NewVoucher[] = Array.from({ length: chunkCount }).map((_, idx) => ({
         tanggal,
-        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`, // Plain code sent to Edge Function
+        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`, // Plain code
         platform,
         source: "Manual Adjustment",
         nominal: nominal,
         status: 'available',
       }));
 
-      const { error: insertError } = await supabase.functions.invoke('encrypt-voucher', {
-        body: { vouchers: vouchersToInsert }, // encryptionKey tidak lagi dikirim
-      });
+      const { error: insertError } = await supabase
+        .from('vouchers')
+        .insert(vouchersToInsert);
 
       if (insertError) {
         toast({ title: "Error Penyimpanan", description: `Gagal menyimpan batch ${i / CHUNK_SIZE + 1}: ${insertError.message}`, variant: "destructive" });
@@ -107,7 +105,6 @@ const ManualStockAdjustmentPage = () => {
 
     toast({ title: "Sukses", description: `${successfulInserts} voucher berhasil ditambahkan secara manual.` });
     setQuantity(1);
-    // encryptionPin tidak lagi di-clear
     setLoading(false);
   };
 
@@ -123,7 +120,7 @@ const ManualStockAdjustmentPage = () => {
             </Button>
             <CardTitle>Penyesuaian Stok Manual</CardTitle>
           </div>
-          <CardDescription>Tambahkan jumlah stok voucher secara manual untuk platform dan nominal tertentu. Kode voucher akan dienkripsi secara otomatis dengan PIN sistem.</CardDescription>
+          <CardDescription>Tambahkan jumlah stok voucher secara manual untuk platform dan nominal tertentu. Kode voucher akan disimpan sebagai teks biasa.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -165,7 +162,6 @@ const ManualStockAdjustmentPage = () => {
                 />
               </div>
             </div>
-            {/* Input PIN Enkripsi dihapus */}
             {loading && (
               <div className="space-y-2">
                 <Progress value={progressValue} className="w-full" />

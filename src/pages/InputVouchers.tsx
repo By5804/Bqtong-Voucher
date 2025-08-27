@@ -54,7 +54,6 @@ const InputVouchersPage = () => {
   const [platform, setPlatform] = useState<Platform>("LG");
   const [source, setSource] = useState<Source | ''>('');
   const [nominal, setNominal] = useState("50000");
-  // encryptionPin state dihapus
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
@@ -85,7 +84,6 @@ const InputVouchersPage = () => {
       toast({ title: "Error", description: "Harap pilih Platform dan Nominal.", variant: "destructive" });
       return;
     }
-    // Validasi encryptionPin dihapus
 
     setLoading(true);
     setProgress({ processed: 0, total: voucherCount });
@@ -98,15 +96,15 @@ const InputVouchersPage = () => {
       
       const vouchersToInsert: NewVoucher[] = chunk.map(code => ({
         tanggal,
-        code: code.trim(), // Plain code sent to Edge Function for encryption
+        code: code.trim(), // Plain code
         platform,
         source: source || null,
         nominal: nominal,
       }));
 
-      const { data, error: insertError } = await supabase.functions.invoke('encrypt-voucher', {
-        body: { vouchers: vouchersToInsert }, // encryptionKey tidak lagi dikirim
-      });
+      const { error: insertError } = await supabase
+        .from('vouchers')
+        .insert(vouchersToInsert);
 
       if (insertError) {
         toast({ title: "Error Penyimpanan", description: `Gagal menyimpan batch ${i / CHUNK_SIZE + 1}: ${insertError.message}`, variant: "destructive" });
@@ -114,13 +112,12 @@ const InputVouchersPage = () => {
         return;
       }
       
-      successfulInserts += chunk.length; // Assuming all in chunk are processed by Edge Function
+      successfulInserts += chunk.length;
       setProgress(prev => ({ ...prev, processed: prev.processed + chunk.length }));
     }
 
     toast({ title: "Sukses", description: `${successfulInserts} dari ${voucherCount} voucher berhasil disimpan.` });
     setCodes("");
-    // encryptionPin tidak lagi di-clear
     setLoading(false);
   };
 
@@ -136,7 +133,7 @@ const InputVouchersPage = () => {
             </Button>
             <CardTitle>Input Voucher Massal</CardTitle>
           </div>
-          <CardDescription>Masukkan data voucher pada form di bawah ini. Pisahkan setiap kode voucher dengan baris baru. Kode voucher akan dienkripsi secara otomatis dengan PIN sistem.</CardDescription>
+          <CardDescription>Masukkan data voucher pada form di bawah ini. Pisahkan setiap kode voucher dengan baris baru. Kode voucher akan disimpan sebagai teks biasa.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -175,7 +172,6 @@ const InputVouchersPage = () => {
                 </Select>
               </div>
             </div>
-            {/* Input PIN Enkripsi dihapus */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label htmlFor="codes-input" className="block text-sm font-medium text-left">Kode Voucher</label>
