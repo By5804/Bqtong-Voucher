@@ -11,39 +11,13 @@ import { Database } from "@/integrations/supabase/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Edit } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
-type Platform = "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
-
-const getFilteredNominalOptions = (platform: Platform | '') => {
-  if (platform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (platform === "LG" || platform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (platform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return [];
-};
 
 export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
-  const [platform, setPlatform] = useState<Platform | ''>('');
+  const [platform, setPlatform] = useState<string>('');
   const [nominal, setNominal] = useState<string>('');
   const [gameId, setGameId] = useState<string>('');
   const [itemTypeId, setItemTypeId] = useState<string>('');
@@ -58,14 +32,17 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [mappingToDelete, setMappingToDelete] = useState<string | null>(null);
 
   const { toast } = useToast();
+  const { platforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
 
-  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+  const platformOptions = useMemo(() => platforms.map(p => p.platform_name), [platforms]);
+  const filteredNominalOptions = useMemo(() => {
+    if (!platform) return [];
+    return getDenominationsForPlatform(platform);
+  }, [platform, getDenominationsForPlatform]);
 
   useEffect(() => {
     if (nominal && !filteredNominalOptions.includes(nominal)) {
-      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
-    } else if (!nominal && filteredNominalOptions.length > 0) {
-      setNominal(filteredNominalOptions[0]);
+      setNominal('');
     }
   }, [platform, nominal, filteredNominalOptions]);
 
@@ -183,7 +160,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
   const handleEdit = (mapping: ProductMapping) => {
     setEditingMapping(mapping);
-    setPlatform(mapping.platform as Platform);
+    setPlatform(mapping.platform);
     setNominal(mapping.nominal);
     setGameId(String(mapping.game_id));
     setItemTypeId(String(mapping.item_type_id));
@@ -223,7 +200,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <Label htmlFor="platform-select">Platform</Label>
-          <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading || !!editingMapping}>
+          <Select value={platform} onValueChange={setPlatform} disabled={loading || !!editingMapping || loadingDenominations}>
             <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih Platform" /></SelectTrigger>
             <SelectContent>
               {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -232,10 +209,10 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
         </div>
         <div className="md:col-span-2">
           <Label htmlFor="nominal-select">Nominal</Label>
-          <Select value={nominal} onValueChange={setNominal} disabled={loading || !platform || !!editingMapping}>
+          <Select value={nominal} onValueChange={setNominal} disabled={loading || !platform || !!editingMapping || loadingDenominations}>
             <SelectTrigger id="nominal-select"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
             <SelectContent>
-              {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>)}
+              {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n, platform)}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -288,9 +265,6 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
                 <TableHead>Platform</TableHead>
                 <TableHead>Nominal</TableHead>
                 <TableHead>Game ID</TableHead>
-                <TableHead>Item Type ID</TableHead>
-                <TableHead>Item Info Group ID</TableHead>
-                <TableHead>Item Info ID</TableHead>
                 <TableHead>Product ID</TableHead>
                 <TableHead>Nama Toko</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
@@ -300,11 +274,8 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
               {mappings.map((mapping) => (
                 <TableRow key={mapping.id}>
                   <TableCell>{mapping.platform}</TableCell>
-                  <TableCell>{formatNominalDisplay(mapping.nominal)}</TableCell>
+                  <TableCell>{formatNominalDisplay(mapping.nominal, mapping.platform)}</TableCell>
                   <TableCell>{mapping.game_id}</TableCell>
-                  <TableCell>{mapping.item_type_id}</TableCell>
-                  <TableCell>{mapping.item_info_group_id}</TableCell>
-                  <TableCell>{mapping.item_info_id}</TableCell>
                   <TableCell>{mapping.product_id}</TableCell>
                   <TableCell>{mapping.store_name || '-'}</TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">

@@ -7,11 +7,11 @@ export type Database = {
           created_at: string;
           tanggal: string;
           nominal: string;
-          platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
-          source: string | null; // Diubah menjadi string | null untuk input teks bebas
+          platform: string;
+          source: string | null;
           status: 'available' | 'sold';
           code: string;
-          invoice: string | null; // Menambahkan kolom invoice
+          invoice: string | null;
         };
         Insert: {
           id?: string;
@@ -19,10 +19,10 @@ export type Database = {
           tanggal: string;
           nominal: string;
           code: string;
-          platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
-          source?: string | null; // Diubah menjadi string | null
+          platform: string;
+          source?: string | null;
           status?: 'available' | 'sold';
-          invoice?: string | null; // Menambahkan kolom invoice
+          invoice?: string | null;
         };
         Update: {
           id?: string;
@@ -30,10 +30,10 @@ export type Database = {
           tanggal?: string;
           nominal?: string;
           code?: string;
-          platform?: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
-          source?: string | null; // Diubah menjadi string | null
+          platform?: string;
+          source?: string | null;
           status?: 'available' | 'sold';
-          invoice?: string | null; // Menambahkan kolom invoice
+          invoice?: string | null;
         };
       };
       product_mappings: {

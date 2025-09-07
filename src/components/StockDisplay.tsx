@@ -10,23 +10,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Database } from "@/integrations/supabase/types";
 import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
 
 type StockData = {
   platform: Platform;
@@ -68,7 +54,7 @@ export const StockDisplay = () => {
             platform: platform.platform_name as Platform,
             nominal,
             internal: count || 0,
-            external: (platform.platform_name === "Itemku" || platform.platform_name === "LG" || platform.platform_name === "Itemku Steam Game Key") ? null : 'N/A' as const
+            external: (platform.platform_name === "Itemku" || platform.platform_name === "LG" || platform.platform_name === "Itemku Steam Game Key" || platform.platform_name.toLowerCase().includes('valorant')) ? null : 'N/A' as const
           }));
         stockPromises.push(promise);
       }
@@ -100,12 +86,12 @@ export const StockDisplay = () => {
           });
 
           if (error) {
-            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${error.message}`, variant: "destructive" });
+            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal, item.platform)}: ${error.message}`, variant: "destructive" });
             return { ...item, external: 'N/A' as const };
           }
           return { ...item, external: data.stock };
         } catch (err: any) {
-          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${err.message}`, variant: "destructive" });
+          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal, item.platform)}: ${err.message}`, variant: "destructive" });
           return { ...item, external: 'N/A' as const };
         }
     });
@@ -151,7 +137,7 @@ export const StockDisplay = () => {
                 <Card key={platform.platform_name}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-lg font-medium">{platform.platform_name}</CardTitle>
-                    {(platform.platform_name === "LG" || platform.platform_name === "Itemku" || platform.platform_name === "Itemku Steam Game Key") && (
+                    {(platform.platform_name === "LG" || platform.platform_name === "Itemku" || platform.platform_name === "Itemku Steam Game Key" || platform.platform_name.toLowerCase().includes('valorant')) && (
                       <Button 
                         onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
                         disabled={loadingExternalStates[platform.platform_name]}
@@ -182,7 +168,7 @@ export const StockDisplay = () => {
                       .map(({ nominal, internal, external }) => (
                         <div key={`${platform.platform_name}-${nominal}`} className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">
-                            {formatNominalDisplay(nominal)}
+                            {formatNominalDisplay(nominal, platform.platform_name)}
                           </span>
                           <div className="flex items-center gap-2">
                             <Tooltip>
@@ -197,7 +183,7 @@ export const StockDisplay = () => {
                                 )}
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Stok di Platform Eksternal (Itemku/LG)</p>
+                                <p>Stok di Platform Eksternal</p>
                               </TooltipContent>
                             </Tooltip>
                             <span className="text-gray-300">|</span>
