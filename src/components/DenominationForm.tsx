@@ -35,7 +35,8 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!platformName.trim()) {
+    const trimmedPlatformName = platformName.trim();
+    if (!trimmedPlatformName) {
       toast({ title: "Error", description: "Nama Platform tidak boleh kosong.", variant: "destructive" });
       return;
     }
@@ -43,23 +44,56 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
     setLoading(true);
 
     const denominationsArray = denominationsInput.split(',').map(d => d.trim()).filter(d => d !== '');
+    const isRenaming = editingPlatform && editingPlatform.platform_name !== trimmedPlatformName;
 
-    const payload = {
-      platform_name: platformName.trim(),
-      denominations: denominationsArray,
-    };
+    if (isRenaming) {
+      // Handle rename logic
+      const { error: renameError } = await supabase.rpc('rename_platform', {
+        old_name: editingPlatform.platform_name,
+        new_name: trimmedPlatformName,
+      });
 
-    const { error } = await supabase
-      .from('platform_denominations')
-      .upsert(payload, { onConflict: 'platform_name' });
+      if (renameError) {
+        toast({ title: "Error", description: `Gagal mengganti nama: ${renameError.message}`, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      toast({ title: "Error", description: `Gagal menyimpan: ${error.message}`, variant: "destructive" });
-    } else {
-      toast({ title: "Sukses", description: `Data berhasil ${editingPlatform ? 'diperbarui' : 'ditambahkan'}.` });
+      // After successful rename, update the denominations for the new name
+      const { error: updateDenomError } = await supabase
+        .from('platform_denominations')
+        .update({ denominations: denominationsArray })
+        .eq('platform_name', trimmedPlatformName);
+      
+      if (updateDenomError) {
+        toast({ title: "Peringatan", description: `Nama berhasil diganti, tapi gagal memperbarui daftar nominal: ${updateDenomError.message}`, variant: "destructive" });
+      } else {
+        toast({ title: "Sukses", description: "Data platform berhasil diperbarui." });
+      }
+      
       resetForm();
       refreshDenominations();
+
+    } else {
+      // Handle add or update denominations logic (existing logic)
+      const payload = {
+        platform_name: trimmedPlatformName,
+        denominations: denominationsArray,
+      };
+
+      const { error } = await supabase
+        .from('platform_denominations')
+        .upsert(payload, { onConflict: 'platform_name' });
+
+      if (error) {
+        toast({ title: "Error", description: `Gagal menyimpan: ${error.message}`, variant: "destructive" });
+      } else {
+        toast({ title: "Sukses", description: `Data berhasil ${editingPlatform ? 'diperbarui' : 'ditambahkan'}.` });
+        resetForm();
+        refreshDenominations();
+      }
     }
+
     setLoading(false);
   };
 
@@ -105,7 +139,7 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
             value={platformName} 
             onChange={e => setPlatformName(e.target.value)} 
             required 
-            disabled={loading || !!editingPlatform} 
+            disabled={loading} 
             placeholder="Contoh: Itemku, LG"
           />
         </div>
