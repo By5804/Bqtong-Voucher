@@ -53,12 +53,12 @@ serve(async (req) => {
     let totalUpdatedCount = 0;
     const CHUNK_SIZE = 100; // Ukuran batch untuk pembaruan
 
-    // 2. Update status voucher yang terpilih menjadi 'sold' dalam batch
+    // 2. Update status dan waktu penjualan voucher yang terpilih
     for (let i = 0; i < voucherIds.length; i += CHUNK_SIZE) {
       const chunk = voucherIds.slice(i, i + CHUNK_SIZE);
       const { error: updateError, count: chunkCount } = await supabaseAdmin
         .from('vouchers')
-        .update({ status: 'sold' }) // Hanya update status, tidak tanggal
+        .update({ status: 'sold', sold_at: new Date().toISOString() })
         .in('id', chunk);
 
       if (updateError) {

@@ -12,6 +12,7 @@ export type Database = {
           status: 'available' | 'sold';
           code: string;
           invoice: string | null;
+          sold_at: string | null;
         };
         Insert: {
           id?: string;
@@ -23,6 +24,7 @@ export type Database = {
           source?: string | null;
           status?: 'available' | 'sold';
           invoice?: string | null;
+          sold_at?: string | null;
         };
         Update: {
           id?: string;
@@ -34,6 +36,7 @@ export type Database = {
           source?: string | null;
           status?: 'available' | 'sold';
           invoice?: string | null;
+          sold_at?: string | null;
         };
       };
       product_mappings: {

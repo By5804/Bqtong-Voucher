@@ -54,7 +54,7 @@ export const SoldOutDisplay = () => {
         setServerTime(null);
       } else {
         setServerTime(data.timestamp);
-        if (filters.dateRange === 'daily') {
+        if (filters.dateRange === 'daily' && !filters.searchDate) {
           const serverDate = new Date(data.timestamp);
           setFilters(prev => ({ ...prev, searchDate: formatISO(serverDate, { representation: 'date' }) }));
         }
@@ -66,7 +66,7 @@ export const SoldOutDisplay = () => {
     } finally {
       setLoadingServerTime(false);
     }
-  }, [toast, filters.dateRange]);
+  }, [toast, filters.dateRange, filters.searchDate]);
 
   const fetchSoldData = useCallback(async () => {
     if (loadingDenominations) return;
@@ -77,10 +77,10 @@ export const SoldOutDisplay = () => {
     let queryEndDate: Date | null = null;
 
     if (filters.searchDate) {
-      queryStartDate = new Date(filters.searchDate);
-      queryEndDate = new Date(filters.searchDate);
-    } else {
-      if (serverTime) {
+      const parts = filters.searchDate.split('-').map(p => parseInt(p, 10));
+      queryStartDate = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      queryEndDate = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    } else if (serverTime) {
         const today = new Date(serverTime);
         switch (filters.dateRange) {
           case 'daily': queryStartDate = today; queryEndDate = today; break;
@@ -90,11 +90,19 @@ export const SoldOutDisplay = () => {
           case 'yearly': queryStartDate = subDays(today, 365); queryEndDate = today; break;
           default: break;
         }
-      }
     }
 
-    const formattedStartDate = queryStartDate ? formatISO(queryStartDate, { representation: 'date' }) : null;
-    const formattedEndDate = queryEndDate ? formatISO(queryEndDate, { representation: 'date' }) : null;
+    let formattedStartDate: string | null = null;
+    let formattedEndDate: string | null = null;
+
+    if (queryStartDate) {
+        queryStartDate.setUTCHours(0, 0, 0, 0);
+        formattedStartDate = queryStartDate.toISOString();
+    }
+    if (queryEndDate) {
+        queryEndDate.setUTCHours(23, 59, 59, 999);
+        formattedEndDate = queryEndDate.toISOString();
+    }
 
     for (const platform of denominationPlatforms) {
       for (const nominal of platform.denominations) {
@@ -103,10 +111,11 @@ export const SoldOutDisplay = () => {
           .select("*", { count: "exact", head: true })
           .eq("platform", platform.platform_name)
           .eq("nominal", nominal)
-          .eq("status", "sold");
+          .eq("status", "sold")
+          .not('sold_at', 'is', null);
 
-        if (formattedStartDate) query = query.gte('tanggal', formattedStartDate);
-        if (formattedEndDate) query = query.lte('tanggal', formattedEndDate);
+        if (formattedStartDate) query = query.gte('sold_at', formattedStartDate);
+        if (formattedEndDate) query = query.lte('sold_at', formattedEndDate);
 
         const promise = query.then(({ count, error }) => {
           if (error) {
