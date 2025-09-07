@@ -7,10 +7,11 @@ import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
 import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction";
 import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction";
+import { ManageDenominationsQuickAction } from "@/components/ManageDenominationsQuickAction"; // Import komponen baru
 import { PlusCircle } from "lucide-react";
-import { useState, useEffect, useCallback } from "react"; // Import useEffect dan useCallback
-import { supabase } from "@/integrations/supabase/client"; // Import supabase client
-import { useToast } from "@/components/ui/use-toast"; // Import useToast
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const [stockKey, setStockKey] = useState(0);
@@ -78,6 +79,7 @@ const Index = () => {
             </Link>
           </Button>
           <ManageProductMappingsQuickAction />
+          <ManageDenominationsQuickAction /> {/* Menambahkan aksi cepat baru */}
         </div>
       </div>
 

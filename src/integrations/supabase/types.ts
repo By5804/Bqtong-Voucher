@@ -6,38 +6,41 @@ export type Database = {
           id: string;
           created_at: string;
           tanggal: string;
-          nominal: string; // Diubah dari number menjadi string
-          platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-          source: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
+          nominal: string;
+          platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
+          source: string | null; // Diubah menjadi string | null untuk input teks bebas
           status: 'available' | 'sold';
-          code: string; // Tetap string di client karena akan didekripsi sebelum ditampilkan
+          code: string;
+          invoice: string | null; // Menambahkan kolom invoice
         };
         Insert: {
           id?: string;
           created_at?: string;
           tanggal: string;
-          nominal: string; // Diubah dari number menjadi string
-          code: string; // Tetap string di client karena akan dienkripsi sebelum disimpan
-          platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
+          nominal: string;
+          code: string;
+          platform: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
+          source?: string | null; // Diubah menjadi string | null
           status?: 'available' | 'sold';
+          invoice?: string | null; // Menambahkan kolom invoice
         };
         Update: {
           id?: string;
           created_at?: string;
           tanggal?: string;
-          nominal?: string; // Diubah dari number menjadi string
-          code?: string; // Tetap string di client karena akan dienkripsi sebelum disimpan
-          platform?: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key"; // Menambahkan platform baru
-          source?: "Paygift website" | "Paygift Sales" | "Tokopedia" | "Manual Adjustment" | "Random" | null; // Menambahkan 'Random'
+          nominal?: string;
+          code?: string;
+          platform?: "LG" | "wahyu" | "Itemku" | "Itemku Steam Game Key";
+          source?: string | null; // Diubah menjadi string | null
           status?: 'available' | 'sold';
+          invoice?: string | null; // Menambahkan kolom invoice
         };
       };
       product_mappings: {
         Row: {
           id: string;
           platform: string;
-          nominal: string; // Diubah dari number menjadi string
+          nominal: string;
           game_id: number;
           item_type_id: number;
           item_info_group_id: number;
@@ -49,7 +52,7 @@ export type Database = {
         Insert: {
           id?: string;
           platform: string;
-          nominal: string; // Diubah dari number menjadi string
+          nominal: string;
           game_id: number;
           item_type_id: number;
           item_info_group_id: number;
@@ -61,7 +64,7 @@ export type Database = {
         Update: {
           id?: string;
           platform?: string;
-          nominal?: string; // Diubah dari number menjadi string
+          nominal?: string;
           game_id?: number;
           item_type_id?: number;
           item_info_group_id?: number;
@@ -69,6 +72,23 @@ export type Database = {
           product_id?: string;
           created_at?: string;
           store_name?: string | null;
+        };
+      };
+      platform_denominations: { // Menambahkan tipe untuk tabel baru
+        Row: {
+          platform_name: string;
+          denominations: string[];
+          created_at: string;
+        };
+        Insert: {
+          platform_name: string;
+          denominations?: string[];
+          created_at?: string;
+        };
+        Update: {
+          platform_name?: string;
+          denominations?: string[];
+          created_at?: string;
         };
       };
       profiles: {

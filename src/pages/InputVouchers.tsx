@@ -12,13 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Label } from "@/components/ui/label"; // Import Label
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
+// Source sekarang adalah string | null
+// type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>; // Dihapus
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
+// sourceOptions dihapus karena sekarang input teks bebas
+// const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
@@ -52,8 +55,9 @@ const InputVouchersPage = () => {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
   const [codes, setCodes] = useState("");
   const [platform, setPlatform] = useState<Platform>("LG");
-  const [source, setSource] = useState<Source | ''>('');
+  const [source, setSource] = useState<string>(''); // Source sekarang string
   const [nominal, setNominal] = useState("50000");
+  const [invoice, setInvoice] = useState<string>(''); // State untuk invoice
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
@@ -96,10 +100,11 @@ const InputVouchersPage = () => {
       
       const vouchersToInsert: NewVoucher[] = chunk.map(code => ({
         tanggal,
-        code: code.trim(), // Plain code
+        code: code.trim(),
         platform,
-        source: source || null,
+        source: source.trim() === '' ? null : source.trim(), // Simpan sebagai null jika kosong
         nominal: nominal,
+        invoice: invoice.trim() === '' ? null : invoice.trim(), // Simpan invoice
       }));
 
       const { error: insertError } = await supabase
@@ -118,6 +123,8 @@ const InputVouchersPage = () => {
 
     toast({ title: "Sukses", description: `${successfulInserts} dari ${voucherCount} voucher berhasil disimpan.` });
     setCodes("");
+    setInvoice(""); // Reset invoice
+    setSource(""); // Reset source
     setLoading(false);
   };
 
@@ -139,11 +146,11 @@ const InputVouchersPage = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="tanggal-input" className="block text-sm font-medium mb-2 text-left">Tanggal</label>
+                <Label htmlFor="tanggal-input" className="block text-sm font-medium mb-2 text-left">Tanggal</Label>
                 <Input id="tanggal-input" type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} required disabled={loading} />
               </div>
               <div>
-                <label htmlFor="nominal-select" className="block text-sm font-medium mb-2 text-left">Nominal</label>
+                <Label htmlFor="nominal-select" className="block text-sm font-medium mb-2 text-left">Nominal</Label>
                 <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading || !platform}>
                   <SelectTrigger id="nominal-select"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
                   <SelectContent>
@@ -154,7 +161,7 @@ const InputVouchersPage = () => {
                 </Select>
               </div>
               <div>
-                <label htmlFor="platform-select" className="block text-sm font-medium mb-2 text-left">Provider (Platform)</label>
+                <Label htmlFor="platform-select" className="block text-sm font-medium mb-2 text-left">Provider (Platform)</Label>
                 <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading}>
                   <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih Provider" /></SelectTrigger>
                   <SelectContent>
@@ -163,18 +170,17 @@ const InputVouchersPage = () => {
                 </Select>
               </div>
               <div>
-                <label htmlFor="source-select" className="block text-sm font-medium mb-2 text-left">Source (Sumber Stok)</label>
-                <Select value={source} onValueChange={(value: Source) => setSource(value)} disabled={loading}>
-                  <SelectTrigger id="source-select"><SelectValue placeholder="Pilih Source (Opsional)" /></SelectTrigger>
-                  <SelectContent>
-                    {sourceOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="source-input" className="block text-sm font-medium mb-2 text-left">Source (Sumber Stok) <span className="text-muted-foreground">(Opsional)</span></Label>
+                <Input id="source-input" type="text" value={source} onChange={(e) => setSource(e.target.value)} placeholder="Contoh: Paygift website, Tokopedia" disabled={loading} />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="invoice-input" className="block text-sm font-medium mb-2 text-left">Nomor Invoice <span className="text-muted-foreground">(Opsional)</span></Label>
+                <Input id="invoice-input" type="text" value={invoice} onChange={(e) => setInvoice(e.target.value)} placeholder="Contoh: INV-20240801-001" disabled={loading} />
               </div>
             </div>
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label htmlFor="codes-input" className="block text-sm font-medium text-left">Kode Voucher</label>
+                <Label htmlFor="codes-input" className="block text-sm font-medium text-left">Kode Voucher</Label>
                 <span className="text-sm text-muted-foreground">{voucherCount} voucher dimasukkan</span>
               </div>
               <Textarea id="codes-input" value={codes} onChange={(e) => setCodes(e.target.value)} placeholder="Contoh:&#10;CODE123&#10;CODE456&#10;CODE789" required rows={10} disabled={loading} />

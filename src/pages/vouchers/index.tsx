@@ -12,17 +12,19 @@ import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { subDays, formatISO } from "date-fns";
 import { Trash2, ArrowLeft } from "lucide-react"; 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>;
+// Source sekarang adalah string | null
+// type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>; // Dihapus
 type Status = Database['public']['Tables']['vouchers']['Row']['status'];
 
 const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
+// sourceOptions dihapus karena sekarang input teks bebas
+// const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
 const statusOptions: Status[] = ["available", "sold"];
 
 const formatNominalDisplay = (nominal: string | number) => {
@@ -68,9 +70,10 @@ export default function VoucherPage() {
     dateRange: 'all',
     searchCode: '',
     platform: 'all',
-    source: 'all',
+    source: '', // Source sekarang string kosong untuk input teks
     nominal: 'all',
-    status: 'all'
+    status: 'all',
+    searchInvoice: '', // Menambahkan filter invoice
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,7 +152,7 @@ export default function VoucherPage() {
   };
 
   const clearFilters = () => {
-    setFilters({ searchDate: '', dateRange: 'all', searchCode: '', platform: 'all', source: 'all', nominal: 'all', status: 'all' });
+    setFilters({ searchDate: '', dateRange: 'all', searchCode: '', platform: 'all', source: '', nominal: 'all', status: 'all', searchInvoice: '' });
     setCurrentPage(1);
   }
 
@@ -288,14 +291,8 @@ export default function VoucherPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="source">Source</Label>
-                <Select value={filters.source} onValueChange={value => handleFilterChange('source', value)}>
-                  <SelectTrigger id="source"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Source</SelectItem>
-                    {sourceOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="source-filter">Source</Label>
+                <Input id="source-filter" placeholder="Cari berdasarkan source" value={filters.source} onChange={e => handleFilterChange('source', e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="nominal">Nominal</Label>
@@ -319,9 +316,13 @@ export default function VoucherPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="lg:col-span-2">
+              <div>
                 <Label htmlFor="search-code">Cari Kode Voucher</Label>
                 <Input id="search-code" placeholder="Cari berdasarkan kode voucher" value={filters.searchCode} onChange={e => handleFilterChange('searchCode', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="search-invoice">Cari Invoice</Label>
+                <Input id="search-invoice" placeholder="Cari berdasarkan nomor invoice" value={filters.searchInvoice} onChange={e => handleFilterChange('searchInvoice', e.target.value)} />
               </div>
             </div>
             <div className="flex gap-4">
@@ -355,6 +356,7 @@ export default function VoucherPage() {
                     <TableHead>Kode Voucher</TableHead>
                     <TableHead>Platform</TableHead>
                     <TableHead>Source</TableHead>
+                    <TableHead>Invoice</TableHead> {/* Menambahkan kolom Invoice */}
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
@@ -370,6 +372,7 @@ export default function VoucherPage() {
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
                       <TableCell>{voucher.source || '-'}</TableCell>
+                      <TableCell>{voucher.invoice || '-'}</TableCell> {/* Menampilkan invoice */}
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           voucher.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'

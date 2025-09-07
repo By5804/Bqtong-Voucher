@@ -38,7 +38,7 @@ serve(async (req) => {
 
     let query = supabaseAdmin
       .from('vouchers')
-      .select('*', { count: 'exact' })
+      .select('*, invoice', { count: 'exact' }) // Menambahkan 'invoice' ke select
       .order('created_at', { ascending: false });
 
     if (filters) {
@@ -69,10 +69,11 @@ serve(async (req) => {
         query = query.lte('tanggal', new Date().toISOString().split('T')[0]);
       }
       if (filters.platform !== 'all') query = query.eq('platform', filters.platform);
-      if (filters.source !== 'all') query = query.eq('source', filters.source);
+      if (filters.source && filters.source !== 'all') query = query.ilike('source', `%${filters.source}%`); // Menggunakan ilike untuk source
       if (filters.nominal !== 'all') query = query.eq('nominal', filters.nominal);
       if (filters.status !== 'all') query = query.eq('status', filters.status);
       if (filters.searchCode) query = query.ilike('code', `%${filters.searchCode}%`);
+      if (filters.searchInvoice) query = query.ilike('invoice', `%${filters.searchInvoice}%`); // Menambahkan filter invoice
     }
 
     if (from !== undefined && to !== undefined) {
