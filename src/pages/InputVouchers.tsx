@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { formatNominalDisplay } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Import baru untuk scroll area
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
@@ -34,6 +35,10 @@ const InputVouchersPage = () => {
   const navigate = useNavigate();
   const { platforms: denominationPlatforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
 
+  // State baru untuk menyimpan daftar kode duplikat
+  const [duplicatesInInputList, setDuplicatesInInputList] = useState<string[]>([]);
+  const [existingInDbList, setExistingInDbList] = useState<string[]>([]);
+
   const platformOptions = useMemo(() => denominationPlatforms.map(p => p.platform_name), [denominationPlatforms]);
   const filteredNominalOptions = useMemo(() => getDenominationsForPlatform(platform as string), [platform, getDenominationsForPlatform]);
 
@@ -48,6 +53,12 @@ const InputVouchersPage = () => {
       setNominal('');
     }
   }, [platform, nominal, filteredNominalOptions]);
+
+  // Efek untuk membersihkan daftar duplikat saat input kode berubah
+  useEffect(() => {
+    setDuplicatesInInputList([]);
+    setExistingInDbList([]);
+  }, [codes]);
 
   const voucherCount = useMemo(() => {
     if (!codes.trim()) return 0;
@@ -67,6 +78,8 @@ const InputVouchersPage = () => {
 
     setLoading(true);
     setProgress({ processed: 0, total: 0 });
+    setDuplicatesInInputList([]); // Bersihkan daftar duplikat sebelumnya
+    setExistingInDbList([]);     // Bersihkan daftar yang sudah ada di DB sebelumnya
 
     const codeList = codes.trim().split('\n').map(c => c.trim()).filter(c => c !== '');
 
@@ -83,16 +96,12 @@ const InputVouchersPage = () => {
 
     if (duplicatesInInput.length > 0) {
       const uniqueDuplicates = [...new Set(duplicatesInInput)];
-      const displayLimit = 5;
-      const displayedDuplicates = uniqueDuplicates.slice(0, displayLimit).join(', ');
-      const remainingCount = uniqueDuplicates.length - displayLimit;
-      const description = `Kode berikut duplikat di dalam input Anda: ${displayedDuplicates}${remainingCount > 0 ? ` ...dan ${remainingCount} lagi.` : '.'}`;
-      
+      setDuplicatesInInputList(uniqueDuplicates); // Set state untuk panel
       toast({
         title: "Error: Duplikat pada Input",
-        description: description,
+        description: `Ditemukan ${uniqueDuplicates.length} kode duplikat di dalam input Anda. Lihat detail di bawah.`,
         variant: "destructive",
-        duration: 10000,
+        duration: 5000, // Durasi toast lebih pendek karena detail ada di panel
       });
       setLoading(false);
       return;
@@ -113,16 +122,12 @@ const InputVouchersPage = () => {
 
     if (existingVouchers && existingVouchers.length > 0) {
       const existingCodes = existingVouchers.map(v => v.code);
-      const displayLimit = 5;
-      const displayedDuplicates = existingCodes.slice(0, displayLimit).join(', ');
-      const remainingCount = existingCodes.length - displayLimit;
-      const description = `Kode berikut sudah ada di database: ${displayedDuplicates}${remainingCount > 0 ? ` ...dan ${remainingCount} lagi.` : '.'}`;
-
+      setExistingInDbList(existingCodes); // Set state untuk panel
       toast({
         title: "Error: Kode Sudah Ada",
-        description: description,
+        description: `Ditemukan ${existingCodes.length} kode yang sudah ada di database. Lihat detail di bawah.`,
         variant: "destructive",
-        duration: 10000,
+        duration: 5000, // Durasi toast lebih pendek
       });
       setLoading(false);
       return;
@@ -163,12 +168,14 @@ const InputVouchersPage = () => {
     setInvoice("");
     setSource("");
     setLoading(false);
+    setDuplicatesInInputList([]); // Bersihkan setelah sukses
+    setExistingInDbList([]);     // Bersihkan setelah sukses
   };
 
   const progressValue = progress.total > 0 ? (progress.processed / progress.total) * 100 : 0;
 
   return (
-    <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
+    <div className="container mx-auto py-8 flex flex-col items-center justify-center min-h-screen">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <div className="flex items-center gap-4">
@@ -236,6 +243,44 @@ const InputVouchersPage = () => {
           </form>
         </CardContent>
       </Card>
+
+      {(duplicatesInInputList.length > 0 || existingInDbList.length > 0) && (
+        <Card className="w-full max-w-2xl mt-6 border-red-400 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-700">Ditemukan Duplikat!</CardTitle>
+            <CardDescription className="text-red-600">Harap perbaiki kode voucher berikut sebelum melanjutkan.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {duplicatesInInputList.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-md mb-2 text-red-700">Duplikat dalam Input Anda ({duplicatesInInputList.length}):</h4>
+                <ScrollArea className="h-40 w-full rounded-md border border-red-200 bg-white p-4">
+                  <ul className="list-disc list-inside space-y-1">
+                    {duplicatesInInputList.map((code, index) => (
+                      <li key={`input-dup-${index}`} className="font-mono text-sm text-red-800">{code}</li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </div>
+            )}
+            {existingInDbList.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-md mb-2 text-red-700">Sudah Ada di Database ({existingInDbList.length}):</h4>
+                <ScrollArea className="h-40 w-full rounded-md border border-red-200 bg-white p-4">
+                  <ul className="list-disc list-inside space-y-1">
+                    {existingInDbList.map((code, index) => (
+                      <li key={`db-dup-${index}`} className="font-mono text-sm text-red-800">{code}</li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </div>
+            )}
+            <Button variant="destructive" onClick={() => { setDuplicatesInInputList([]); setExistingInDbList([]); }} className="w-full">
+              Tutup Detail Duplikat
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
