@@ -43,57 +43,79 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
 
     setLoading(true);
 
-    const denominationsArray = denominationsInput.split(',').map(d => d.trim()).filter(d => d !== '');
-    const isRenaming = editingPlatform && editingPlatform.platform_name !== trimmedPlatformName;
+    const newDenoms = denominationsInput.split(',').map(d => d.trim()).filter(d => d !== '');
+    const isRenamingPlatform = editingPlatform && editingPlatform.platform_name !== trimmedPlatformName;
 
-    if (isRenaming) {
-      // Handle rename logic
+    if (isRenamingPlatform) {
       const { error: renameError } = await supabase.rpc('rename_platform', {
         old_name: editingPlatform.platform_name,
         new_name: trimmedPlatformName,
       });
 
       if (renameError) {
-        toast({ title: "Error", description: `Gagal mengganti nama: ${renameError.message}`, variant: "destructive" });
+        toast({ title: "Error", description: `Gagal mengganti nama platform: ${renameError.message}`, variant: "destructive" });
         setLoading(false);
         return;
       }
 
-      // After successful rename, update the denominations for the new name
       const { error: updateDenomError } = await supabase
         .from('platform_denominations')
-        .update({ denominations: denominationsArray })
+        .update({ denominations: newDenoms })
         .eq('platform_name', trimmedPlatformName);
       
       if (updateDenomError) {
-        toast({ title: "Peringatan", description: `Nama berhasil diganti, tapi gagal memperbarui daftar nominal: ${updateDenomError.message}`, variant: "destructive" });
+        toast({ title: "Peringatan", description: `Nama platform berhasil diganti, tapi gagal memperbarui daftar nominal: ${updateDenomError.message}`, variant: "destructive" });
       } else {
         toast({ title: "Sukses", description: "Data platform berhasil diperbarui." });
       }
       
-      resetForm();
-      refreshDenominations();
+    } else if (editingPlatform) {
+      // Logic to detect denomination rename
+      const oldDenoms = editingPlatform.denominations;
+      const removed = oldDenoms.filter(d => !newDenoms.includes(d));
+      const added = newDenoms.filter(d => !oldDenoms.includes(d));
 
+      if (removed.length === 1 && added.length === 1) {
+        // This is a denomination rename
+        const { error: renameDenomError } = await supabase.rpc('rename_denomination', {
+          p_platform_name: trimmedPlatformName,
+          old_denom_name: removed[0],
+          new_denom_name: added[0],
+        });
+
+        if (renameDenomError) {
+          toast({ title: "Error", description: `Gagal mengganti nama nominal: ${renameDenomError.message}`, variant: "destructive" });
+        } else {
+          toast({ title: "Sukses", description: `Nominal "${removed[0]}" berhasil diubah menjadi "${added[0]}".` });
+        }
+      } else {
+        // This is a simple list update (add/remove/reorder)
+        const { error: updateError } = await supabase
+          .from('platform_denominations')
+          .update({ denominations: newDenoms })
+          .eq('platform_name', trimmedPlatformName);
+        
+        if (updateError) {
+          toast({ title: "Error", description: `Gagal memperbarui daftar nominal: ${updateError.message}`, variant: "destructive" });
+        } else {
+          toast({ title: "Sukses", description: "Daftar nominal berhasil diperbarui." });
+        }
+      }
     } else {
-      // Handle add or update denominations logic (existing logic)
-      const payload = {
-        platform_name: trimmedPlatformName,
-        denominations: denominationsArray,
-      };
-
+      // This is a new platform creation
       const { error } = await supabase
         .from('platform_denominations')
-        .upsert(payload, { onConflict: 'platform_name' });
+        .insert({ platform_name: trimmedPlatformName, denominations: newDenoms });
 
       if (error) {
-        toast({ title: "Error", description: `Gagal menyimpan: ${error.message}`, variant: "destructive" });
+        toast({ title: "Error", description: `Gagal menyimpan platform baru: ${error.message}`, variant: "destructive" });
       } else {
-        toast({ title: "Sukses", description: `Data berhasil ${editingPlatform ? 'diperbarui' : 'ditambahkan'}.` });
-        resetForm();
-        refreshDenominations();
+        toast({ title: "Sukses", description: "Platform baru berhasil ditambahkan." });
       }
     }
 
+    resetForm();
+    refreshDenominations();
     setLoading(false);
   };
 
