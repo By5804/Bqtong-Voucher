@@ -66,17 +66,78 @@ const InputVouchersPage = () => {
     }
 
     setLoading(true);
-    setProgress({ processed: 0, total: voucherCount });
+    setProgress({ processed: 0, total: 0 });
 
-    const codeList = codes.trim().split('\n').filter(code => code.trim() !== '');
+    const codeList = codes.trim().split('\n').map(c => c.trim()).filter(c => c !== '');
+
+    // 1. Check for duplicates within the input list
+    const seenCodes = new Set<string>();
+    const duplicatesInInput: string[] = [];
+    codeList.forEach(code => {
+      if (seenCodes.has(code)) {
+        duplicatesInInput.push(code);
+      } else {
+        seenCodes.add(code);
+      }
+    });
+
+    if (duplicatesInInput.length > 0) {
+      const uniqueDuplicates = [...new Set(duplicatesInInput)];
+      const displayLimit = 5;
+      const displayedDuplicates = uniqueDuplicates.slice(0, displayLimit).join(', ');
+      const remainingCount = uniqueDuplicates.length - displayLimit;
+      const description = `Kode berikut duplikat di dalam input Anda: ${displayedDuplicates}${remainingCount > 0 ? ` ...dan ${remainingCount} lagi.` : '.'}`;
+      
+      toast({
+        title: "Error: Duplikat pada Input",
+        description: description,
+        variant: "destructive",
+        duration: 10000,
+      });
+      setLoading(false);
+      return;
+    }
+
+    // 2. Check for codes that already exist in the database
+    const uniqueCodes = Array.from(seenCodes);
+    const { data: existingVouchers, error: checkError } = await supabase
+      .from('vouchers')
+      .select('code')
+      .in('code', uniqueCodes);
+
+    if (checkError) {
+      toast({ title: "Error Pengecekan", description: `Gagal memeriksa duplikat di database: ${checkError.message}`, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
+    if (existingVouchers && existingVouchers.length > 0) {
+      const existingCodes = existingVouchers.map(v => v.code);
+      const displayLimit = 5;
+      const displayedDuplicates = existingCodes.slice(0, displayLimit).join(', ');
+      const remainingCount = existingCodes.length - displayLimit;
+      const description = `Kode berikut sudah ada di database: ${displayedDuplicates}${remainingCount > 0 ? ` ...dan ${remainingCount} lagi.` : '.'}`;
+
+      toast({
+        title: "Error: Kode Sudah Ada",
+        description: description,
+        variant: "destructive",
+        duration: 10000,
+      });
+      setLoading(false);
+      return;
+    }
+
+    // If we are here, all codes are unique and not in DB. Proceed with insertion.
+    setProgress({ processed: 0, total: uniqueCodes.length });
     let successfulInserts = 0;
 
-    for (let i = 0; i < codeList.length; i += CHUNK_SIZE) {
-      const chunk = codeList.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < uniqueCodes.length; i += CHUNK_SIZE) {
+      const chunk = uniqueCodes.slice(i, i + CHUNK_SIZE);
       
       const vouchersToInsert: NewVoucher[] = chunk.map(code => ({
         tanggal,
-        code: code.trim(),
+        code: code,
         platform,
         source: source.trim() === '' ? null : source.trim(),
         nominal: nominal,
@@ -97,7 +158,7 @@ const InputVouchersPage = () => {
       setProgress(prev => ({ ...prev, processed: prev.processed + chunk.length }));
     }
 
-    toast({ title: "Sukses", description: `${successfulInserts} dari ${voucherCount} voucher berhasil disimpan.` });
+    toast({ title: "Sukses", description: `${successfulInserts} voucher berhasil disimpan.` });
     setCodes("");
     setInvoice("");
     setSource("");
