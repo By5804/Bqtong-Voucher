@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { subDays, formatISO } from "date-fns";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { formatNominalDisplay } from "@/lib/utils";
 
@@ -37,7 +36,13 @@ export const SoldOutDisplay = () => {
   const [loadingServerTime, setLoadingServerTime] = useState(true);
 
   const handleFilterChange = (key: 'searchDate' | 'dateRange', value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    if (key === 'searchDate') {
+      // Saat tanggal spesifik dipilih, set rentang waktu ke 'all' agar tidak ambigu
+      setFilters({ searchDate: value, dateRange: 'all' });
+    } else { // key is 'dateRange'
+      // Saat rentang waktu dipilih, hapus tanggal spesifik
+      setFilters({ searchDate: '', dateRange: value });
+    }
   };
 
   const clearFilters = () => {
@@ -54,10 +59,6 @@ export const SoldOutDisplay = () => {
         setServerTime(null);
       } else {
         setServerTime(data.timestamp);
-        if (filters.dateRange === 'daily' && !filters.searchDate) {
-          const serverDate = new Date(data.timestamp);
-          setFilters(prev => ({ ...prev, searchDate: formatISO(serverDate, { representation: 'date' }) }));
-        }
       }
     } catch (err: any) {
       console.error("General error fetching server time:", err.message);
@@ -66,7 +67,7 @@ export const SoldOutDisplay = () => {
     } finally {
       setLoadingServerTime(false);
     }
-  }, [toast, filters.dateRange, filters.searchDate]);
+  }, [toast]);
 
   const fetchSoldData = useCallback(async () => {
     if (loadingDenominations) return;
@@ -77,32 +78,43 @@ export const SoldOutDisplay = () => {
     let queryEndDate: Date | null = null;
 
     if (filters.searchDate) {
-      const parts = filters.searchDate.split('-').map(p => parseInt(p, 10));
-      queryStartDate = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-      queryEndDate = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-    } else if (serverTime) {
-        const today = new Date(serverTime);
+      // Buat tanggal berdasarkan input 'YYYY-MM-DD' di zona waktu lokal
+      queryStartDate = new Date(filters.searchDate);
+      queryStartDate.setHours(0, 0, 0, 0);
+      
+      queryEndDate = new Date(filters.searchDate);
+      queryEndDate.setHours(23, 59, 59, 999);
+    } else if (filters.dateRange !== 'all') {
+        const now = new Date(); // Waktu lokal klien saat ini
+        
+        queryEndDate = new Date(now);
+        queryEndDate.setHours(23, 59, 59, 999); // Akhir hari ini (lokal)
+
+        const startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0); // Awal hari ini (lokal)
+
         switch (filters.dateRange) {
-          case 'daily': queryStartDate = today; queryEndDate = today; break;
-          case 'weekly': queryStartDate = subDays(today, 7); queryEndDate = today; break;
-          case '2-weeks': queryStartDate = subDays(today, 14); queryEndDate = today; break;
-          case 'monthly': queryStartDate = subDays(today, 30); queryEndDate = today; break;
-          case 'yearly': queryStartDate = subDays(today, 365); queryEndDate = today; break;
-          default: break;
+          case 'daily':
+            // startDate sudah diatur ke awal hari ini
+            break;
+          case 'weekly':
+            startDate.setDate(startDate.getDate() - 6); // Hari ini dan 6 hari sebelumnya
+            break;
+          case '2-weeks':
+            startDate.setDate(startDate.getDate() - 13);
+            break;
+          case 'monthly':
+            startDate.setMonth(startDate.getMonth() - 1);
+            break;
+          case 'yearly':
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            break;
         }
+        queryStartDate = startDate;
     }
 
-    let formattedStartDate: string | null = null;
-    let formattedEndDate: string | null = null;
-
-    if (queryStartDate) {
-        queryStartDate.setUTCHours(0, 0, 0, 0);
-        formattedStartDate = queryStartDate.toISOString();
-    }
-    if (queryEndDate) {
-        queryEndDate.setUTCHours(23, 59, 59, 999);
-        formattedEndDate = queryEndDate.toISOString();
-    }
+    const formattedStartDate = queryStartDate ? queryStartDate.toISOString() : null;
+    const formattedEndDate = queryEndDate ? queryEndDate.toISOString() : null;
 
     for (const platform of denominationPlatforms) {
       for (const nominal of platform.denominations) {
@@ -132,7 +144,7 @@ export const SoldOutDisplay = () => {
     const results = await Promise.all(allSoldPromises);
     setSoldData(results);
     setLoading(false);
-  }, [filters, serverTime, toast, denominationPlatforms, loadingDenominations]);
+  }, [filters, toast, denominationPlatforms, loadingDenominations]);
 
   useEffect(() => {
     fetchServerTime();
@@ -141,10 +153,10 @@ export const SoldOutDisplay = () => {
   }, [fetchServerTime]);
 
   useEffect(() => {
-    if ((serverTime || filters.searchDate || filters.dateRange === 'all') && !loadingDenominations) {
+    if (!loadingDenominations) {
       fetchSoldData();
     }
-  }, [fetchSoldData, serverTime, filters.searchDate, filters.dateRange, loadingDenominations]);
+  }, [fetchSoldData, loadingDenominations]);
 
   const isLoading = loading || loadingDenominations;
 
