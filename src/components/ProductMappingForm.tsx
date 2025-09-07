@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,31 +40,93 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     return getDenominationsForPlatform(platform);
   }, [platform, getDenominationsForPlatform]);
 
+  const sortAndSetMappings = (mappingsToSort: ProductMapping[]) => {
+    const sorted = [...mappingsToSort].sort((a, b) => {
+      const aIsUnconfigured = !a.product_id || a.product_id.trim() === '';
+      const bIsUnconfigured = !b.product_id || b.product_id.trim() === '';
+
+      if (aIsUnconfigured && !bIsUnconfigured) return -1;
+      if (!aIsUnconfigured && bIsUnconfigured) return 1;
+
+      const platformCompare = a.platform.localeCompare(b.platform);
+      if (platformCompare !== 0) return platformCompare;
+
+      const numA = parseInt(a.nominal, 10);
+      const numB = parseInt(b.nominal, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.nominal.localeCompare(b.nominal);
+    });
+    setMappings(sorted);
+  };
+
+  const syncAndFetchMappings = useCallback(async () => {
+    if (loadingDenominations) return;
+    setLoading(true);
+
+    const allDenominations = platforms.flatMap(p =>
+      p.denominations.map(d => ({ platform: p.platform_name, nominal: d }))
+    );
+
+    const { data: existingMappings, error: fetchError } = await supabase
+      .from('product_mappings')
+      .select('*');
+
+    if (fetchError) {
+      toast({ title: "Error", description: `Gagal memuat mapping: ${fetchError.message}`, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
+    const existingMappingKeys = new Set(existingMappings.map(m => `${m.platform}-${m.nominal}`));
+    const mappingsToCreate = allDenominations.filter(d => !existingMappingKeys.has(`${d.platform}-${d.nominal}`));
+
+    if (mappingsToCreate.length > 0) {
+      const newMappingsPayload = mappingsToCreate.map(m => ({
+        platform: m.platform,
+        nominal: m.nominal,
+        game_id: 0,
+        item_type_id: 0,
+        item_info_group_id: 0,
+        item_info_id: 0,
+        product_id: '',
+        store_name: null,
+      }));
+
+      const { error: insertError } = await supabase.from('product_mappings').insert(newMappingsPayload);
+
+      if (insertError) {
+        toast({ title: "Error", description: `Gagal membuat mapping baru: ${insertError.message}`, variant: "destructive" });
+        sortAndSetMappings(existingMappings || []);
+      } else {
+        toast({ title: "Info", description: `${mappingsToCreate.length} mapping baru dibuat untuk denominasi yang belum ada. Harap lengkapi datanya.` });
+        const { data: allMappings, error: refetchError } = await supabase.from('product_mappings').select('*');
+        if (refetchError) {
+          toast({ title: "Error", description: `Gagal memuat ulang mapping: ${refetchError.message}`, variant: "destructive" });
+          sortAndSetMappings(existingMappings || []);
+        } else {
+          sortAndSetMappings(allMappings || []);
+        }
+      }
+    } else {
+      sortAndSetMappings(existingMappings || []);
+    }
+
+    setLoading(false);
+  }, [platforms, loadingDenominations, toast]);
+
+  useEffect(() => {
+    if (!loadingDenominations) {
+      syncAndFetchMappings();
+    }
+  }, [loadingDenominations, syncAndFetchMappings]);
+
   useEffect(() => {
     if (nominal && !filteredNominalOptions.includes(nominal)) {
       setNominal('');
     }
   }, [platform, nominal, filteredNominalOptions]);
-
-  const fetchMappings = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('product_mappings')
-      .select('*')
-      .order('platform', { ascending: true })
-      .order('nominal', { ascending: true });
-
-    if (error) {
-      toast({ title: "Error", description: `Gagal memuat mapping: ${error.message}`, variant: "destructive" });
-    } else {
-      setMappings(data || []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchMappings();
-  }, []);
 
   const resetForm = () => {
     setPlatform('');
@@ -101,28 +163,6 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     setLoading(true);
 
-    const { data: existingMappings, error: checkError } = await supabase
-      .from('product_mappings')
-      .select('id')
-      .eq('platform', platform)
-      .eq('nominal', nominal);
-
-    if (checkError) {
-      toast({ title: "Error", description: `Gagal memeriksa duplikasi mapping: ${checkError.message}`, variant: "destructive" });
-      setLoading(false);
-      return;
-    }
-
-    if (existingMappings && existingMappings.length > 0) {
-      const isEditingCurrent = editingMapping && existingMappings.some(m => m.id === editingMapping.id);
-
-      if (!editingMapping || !isEditingCurrent) {
-        toast({ title: "Error", description: "Mapping untuk Platform dan Nominal ini sudah ada.", variant: "destructive" });
-        setLoading(false);
-        return;
-      }
-    }
-
     const payload = {
       platform,
       nominal: nominal,
@@ -153,7 +193,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     } else {
       toast({ title: "Sukses", description: `Mapping berhasil ${editingMapping ? 'diperbarui' : 'ditambahkan'}.` });
       resetForm();
-      fetchMappings();
+      syncAndFetchMappings();
     }
     setLoading(false);
   };
@@ -188,7 +228,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       toast({ title: "Error", description: `Gagal menghapus mapping: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: "Mapping berhasil dihapus." });
-      fetchMappings();
+      syncAndFetchMappings();
     }
     setLoading(false);
     setIsDeleteDialogOpen(false);
@@ -254,7 +294,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
       <h3 className="text-lg font-semibold mt-8">Daftar Mapping Tersimpan</h3>
       {loading && mappings.length === 0 ? (
-        <p>Memuat daftar mapping...</p>
+        <p>Memuat dan menyinkronkan daftar mapping...</p>
       ) : mappings.length === 0 ? (
         <p className="text-muted-foreground">Belum ada mapping yang tersimpan.</p>
       ) : (
@@ -272,11 +312,11 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
             </TableHeader>
             <TableBody>
               {mappings.map((mapping) => (
-                <TableRow key={mapping.id}>
+                <TableRow key={mapping.id} className={!mapping.product_id ? "bg-yellow-50" : ""}>
                   <TableCell>{mapping.platform}</TableCell>
                   <TableCell>{formatNominalDisplay(mapping.nominal, mapping.platform)}</TableCell>
                   <TableCell>{mapping.game_id}</TableCell>
-                  <TableCell>{mapping.product_id}</TableCell>
+                  <TableCell>{mapping.product_id || <span className="text-red-500">Belum diisi</span>}</TableCell>
                   <TableCell>{mapping.store_name || '-'}</TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="icon" onClick={() => handleEdit(mapping)} disabled={loading}>
