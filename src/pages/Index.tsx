@@ -10,7 +10,7 @@ import { ManageProductMappingsQuickAction } from "@/components/ManageProductMapp
 import { ManageDenominationsQuickAction } from "@/components/ManageDenominationsQuickAction";
 import { MoveVouchersQuickAction } from "@/components/MoveVouchersQuickAction";
 import { MoveDenominationQuickAction } from "@/components/MoveDenominationQuickAction";
-import { MarkPlatformSoldQuickAction } from "@/components/MarkPlatformSoldQuickAction"; // Import baru
+import { SyncPlatformStockQuickAction } from "@/components/SyncPlatformStockQuickAction"; // Import baru
 import { PlusCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,7 +71,7 @@ const Index = () => {
           </Button>
           <MoveVouchersQuickAction onActionComplete={refreshStockDisplay} />
           <MarkSoldQuickAction onActionComplete={refreshStockDisplay} />
-          <MarkPlatformSoldQuickAction onActionComplete={refreshStockDisplay} />
+          <SyncPlatformStockQuickAction onActionComplete={refreshStockDisplay} />
           <ViewSoldVouchersQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
             <Link to="/manual-stock-adjustment">

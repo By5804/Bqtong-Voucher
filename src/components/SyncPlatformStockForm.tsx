@@ -23,7 +23,7 @@ type StockTotals = {
   external: number | 'N/A';
 };
 
-export const MarkPlatformSoldForm = ({ onClose, onActionComplete }: { onClose: () => void; onActionComplete: () => void; }) => {
+export const SyncPlatformStockForm = ({ onClose, onActionComplete }: { onClose: () => void; onActionComplete: () => void; }) => {
   const [loading, setLoading] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('');
   const [stockBreakdown, setStockBreakdown] = useState<StockBreakdown[]>([]);
@@ -63,9 +63,9 @@ export const MarkPlatformSoldForm = ({ onClose, onActionComplete }: { onClose: (
     fetchStockDetails();
   }, [fetchStockDetails]);
 
-  const handleMarkPlatformSold = async () => {
+  const handleSyncPlatformStock = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke('mark-platform-sold', {
+    const { data, error } = await supabase.functions.invoke('sync-platform-stock', {
       body: { platform: selectedPlatform },
     });
 
@@ -82,15 +82,22 @@ export const MarkPlatformSoldForm = ({ onClose, onActionComplete }: { onClose: (
     setLoading(false);
   };
 
-  const vouchersToMarkCount = stockTotals?.internal ?? 0;
-  const isConfirmationDisabled = loading || loadingDenominations || !selectedPlatform || vouchersToMarkCount === 0 || loadingDetails;
+  const vouchersToSyncCount = useMemo(() => {
+    if (!stockTotals || typeof stockTotals.internal !== 'number' || typeof stockTotals.external !== 'number') {
+      return 0;
+    }
+    const diff = stockTotals.internal - stockTotals.external;
+    return diff > 0 ? diff : 0;
+  }, [stockTotals]);
+
+  const isConfirmationDisabled = loading || loadingDenominations || !selectedPlatform || vouchersToSyncCount === 0 || loadingDetails;
 
   return (
     <div className="space-y-4">
       <div>
         <Label htmlFor="platform-select">Pilih Platform</Label>
         <Select value={selectedPlatform} onValueChange={setSelectedPlatform} required disabled={loadingDenominations || loading}>
-          <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih platform yang akan diproses" /></SelectTrigger>
+          <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih platform untuk disinkronkan" /></SelectTrigger>
           <SelectContent>
             {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
           </SelectContent>
@@ -143,33 +150,33 @@ export const MarkPlatformSoldForm = ({ onClose, onActionComplete }: { onClose: (
         </div>
       )}
       
-      {vouchersToMarkCount > 0 && !loadingDetails && (
-        <div className="p-4 border rounded-lg text-center bg-yellow-50 border-yellow-200">
-            <p>Akan menandai <span className="font-bold text-lg text-yellow-800">{vouchersToMarkCount}</span> voucher tersedia sebagai terjual.</p>
+      {vouchersToSyncCount > 0 && !loadingDetails && (
+        <div className="p-4 border rounded-lg text-center bg-blue-50 border-blue-200">
+            <p>Akan menandai <span className="font-bold text-lg text-blue-800">{vouchersToSyncCount}</span> voucher sebagai terjual untuk menyamakan stok.</p>
         </div>
       )}
 
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button disabled={isConfirmationDisabled} className="w-full" variant="destructive">
-            {loading || loadingDenominations || loadingDetails ? "Memproses..." : `Tandai Semua ${vouchersToMarkCount > 0 ? vouchersToMarkCount : ''} Voucher Terjual`}
+          <Button disabled={isConfirmationDisabled} className="w-full" variant="default">
+            {loading || loadingDenominations || loadingDetails ? "Memproses..." : `Samakan Stok (${vouchersToSyncCount} Voucher)`}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Konfirmasi Aksi</AlertDialogTitle>
+            <AlertDialogTitle>Konfirmasi Sinkronisasi</AlertDialogTitle>
             <AlertDialogDescription>
-              Anda akan menandai semua <span className="font-bold">{vouchersToMarkCount}</span> voucher yang tersedia di platform <span className="font-bold">"{selectedPlatform}"</span> sebagai terjual.
+              Anda akan menandai <span className="font-bold">{vouchersToSyncCount}</span> voucher di platform <span className="font-bold">"{selectedPlatform}"</span> sebagai terjual untuk menyamakan stok internal dengan stok eksternal.
               <div className="mt-4 space-y-1 text-sm">
-                <p>Total Stok Eksternal: <span className="font-semibold">{stockTotals?.external ?? 'N/A'}</span></p>
-                <p>Total Stok Internal: <span className="font-semibold">{stockTotals?.internal ?? 'N/A'}</span></p>
+                <p>Stok Eksternal: <span className="font-semibold">{stockTotals?.external ?? 'N/A'}</span></p>
+                <p>Stok Internal: <span className="font-semibold">{stockTotals?.internal ?? 'N/A'}</span></p>
               </div>
               <p className="mt-2">Tindakan ini tidak dapat dibatalkan. Lanjutkan?</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkPlatformSold}>Ya, Lanjutkan</AlertDialogAction>
+            <AlertDialogAction onClick={handleSyncPlatformStock}>Ya, Lanjutkan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

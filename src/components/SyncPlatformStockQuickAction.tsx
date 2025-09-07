@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { MarkPlatformSoldForm } from "@/components/MarkPlatformSoldForm";
-import { Tags } from "lucide-react";
+import { SyncPlatformStockForm } from "@/components/SyncPlatformStockForm";
+import { Tags, RefreshCw } from "lucide-react";
 
-export const MarkPlatformSoldQuickAction = ({ onActionComplete }: { onActionComplete: () => void }) => {
+export const SyncPlatformStockQuickAction = ({ onActionComplete }: { onActionComplete: () => void }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -14,18 +14,18 @@ export const MarkPlatformSoldQuickAction = ({ onActionComplete }: { onActionComp
       <DialogTrigger asChild>
         <Button variant="secondary">
           <span className="flex items-center">
-            <Tags className="mr-2 h-4 w-4" /> Tandai Terjual per Kategori
+            <RefreshCw className="mr-2 h-4 w-4" /> Samakan Stok Kategori
           </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Tandai Terjual per Kategori</DialogTitle>
+          <DialogTitle>Samakan Stok per Kategori</DialogTitle>
           <DialogDescription>
-            Pilih platform untuk menandai semua voucher yang tersedia di dalamnya sebagai terjual.
+            Sesuaikan stok internal agar sama dengan stok eksternal dengan menandai voucher yang berlebih sebagai terjual.
           </DialogDescription>
         </DialogHeader>
-        <MarkPlatformSoldForm onClose={() => setIsOpen(false)} onActionComplete={onActionComplete} />
+        <SyncPlatformStockForm onClose={() => setIsOpen(false)} onActionComplete={onActionComplete} />
       </DialogContent>
     </Dialog>
   );
