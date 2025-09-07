@@ -7,7 +7,8 @@ import { StockDisplay } from "@/components/StockDisplay";
 import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
 import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction";
 import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction";
-import { ManageDenominationsQuickAction } from "@/components/ManageDenominationsQuickAction"; // Import komponen baru
+import { ManageDenominationsQuickAction } from "@/components/ManageDenominationsQuickAction";
+import { MoveVouchersQuickAction } from "@/components/MoveVouchersQuickAction"; // Import baru
 import { PlusCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,9 +67,7 @@ const Index = () => {
           <Button asChild variant="outline">
             <Link to="/input-vouchers">Input Voucher Massal</Link>
           </Button>
-          <Button asChild variant="secondary">
-            <Link to="/move-vouchers">Pindahkan Voucher</Link>
-          </Button>
+          <MoveVouchersQuickAction onActionComplete={refreshStockDisplay} />
           <MarkSoldQuickAction onActionComplete={refreshStockDisplay} />
           <ViewSoldVouchersQuickAction />
           <Button asChild variant="success" className="bg-green-600 hover:bg-green-700 text-white">
@@ -79,7 +78,7 @@ const Index = () => {
             </Link>
           </Button>
           <ManageProductMappingsQuickAction />
-          <ManageDenominationsQuickAction /> {/* Menambahkan aksi cepat baru */}
+          <ManageDenominationsQuickAction />
         </div>
       </div>
 
