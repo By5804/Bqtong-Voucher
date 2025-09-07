@@ -33,6 +33,17 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const [newDenomName, setNewDenomName] = useState('');
   const [denomToEdit, setDenomToEdit] = useState<{ oldName: string; newName: string } | null>(null);
 
+  const handleOpenPlatformModal = (platform: PlatformDenomination | null) => {
+    setPlatformToEdit(platform);
+    setPlatformNameInput(platform ? platform.platform_name : '');
+    setIsPlatformModalOpen(true);
+  };
+
+  const handleSwitchToDenomView = (platform: PlatformDenomination) => {
+    setSelectedPlatform(platform);
+    setView('denominations');
+  };
+
   const handleSavePlatform = async () => {
     const trimmedName = platformNameInput.trim();
     if (!trimmedName) {
