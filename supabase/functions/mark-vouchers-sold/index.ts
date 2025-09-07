@@ -52,14 +52,13 @@ serve(async (req) => {
     const voucherIds = vouchersToUpdate.map(v => v.id);
     let totalUpdatedCount = 0;
     const CHUNK_SIZE = 100; // Ukuran batch untuk pembaruan
-    const today = new Date().toISOString().split('T')[0]; // Dapatkan tanggal hari ini dalam format YYYY-MM-DD
 
-    // 2. Update status dan tanggal voucher yang terpilih menjadi 'sold' dalam batch
+    // 2. Update status voucher yang terpilih menjadi 'sold' dalam batch
     for (let i = 0; i < voucherIds.length; i += CHUNK_SIZE) {
       const chunk = voucherIds.slice(i, i + CHUNK_SIZE);
       const { error: updateError, count: chunkCount } = await supabaseAdmin
         .from('vouchers')
-        .update({ status: 'sold', tanggal: today }) // Tambahkan 'tanggal: today' di sini
+        .update({ status: 'sold' }) // Hanya update status, tidak tanggal
         .in('id', chunk);
 
       if (updateError) {
