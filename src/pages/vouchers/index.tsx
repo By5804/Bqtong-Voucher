@@ -10,38 +10,17 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { subDays, formatISO } from "date-fns";
 import { Trash2, ArrowLeft } from "lucide-react"; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { formatNominalDisplay } from "@/lib/utils";
+import { useDenominations } from "@/contexts/DenominationContext";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
-type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-// Source sekarang adalah string | null
-// type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>; // Dihapus
 type Status = Database['public']['Tables']['vouchers']['Row']['status'];
 
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-// sourceOptions dihapus karena sekarang input teks bebas
-// const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
 const statusOptions: Status[] = ["available", "sold"];
-
-const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') => {
-  if (platformFilter === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (platformFilter === "LG" || platformFilter === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (platformFilter === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  // If 'all' platforms are selected, return a comprehensive list of all possible nominals
-  return [
-    "100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000", // Added "500"
-    "Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"
-  ];
-};
 
 export default function VoucherPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -51,15 +30,17 @@ export default function VoucherPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   
+  const { platforms: denominationPlatforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
+
   const [filters, setFilters] = useState({
     searchDate: '',
     dateRange: 'all',
     searchCode: '',
     platform: 'all',
-    source: '', // Source sekarang string kosong untuk input teks
+    source: '',
     nominal: 'all',
     status: 'all',
-    searchInvoice: '', // Menambahkan filter invoice
+    searchInvoice: '',
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -67,9 +48,22 @@ export default function VoucherPage() {
   const [totalVouchers, setTotalVouchers] = useState(0);
 
   const [pinInput, setPinInput] = useState<string>('');
-  const [validatedPin, setValidatedPin] = useState<string | null>(null); // Stores the successfully validated PIN
+  const [validatedPin, setValidatedPin] = useState<string | null>(null);
 
-  const filteredNominalOptionsForFilter = useMemo(() => getFilteredNominalOptionsForFilter(filters.platform), [filters.platform]);
+  const platformOptions = useMemo(() => denominationPlatforms.map(p => p.platform_name), [denominationPlatforms]);
+
+  const filteredNominalOptionsForFilter = useMemo(() => {
+    if (filters.platform === 'all') {
+      const allDenoms = denominationPlatforms.flatMap(p => p.denominations);
+      return [...new Set(allDenoms)].sort((a, b) => {
+        const numA = parseInt(a, 10);
+        const numB = parseInt(b, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.localeCompare(b);
+      });
+    }
+    return getDenominationsForPlatform(filters.platform as string);
+  }, [filters.platform, denominationPlatforms, getDenominationsForPlatform]);
 
   useEffect(() => {
     if (filters.nominal !== 'all' && !filteredNominalOptionsForFilter.includes(filters.nominal)) {
@@ -102,7 +96,7 @@ export default function VoucherPage() {
         console.error("Error fetching vouchers:", error);
         if (error.status === 401) {
           toast({ title: "Error", description: "PIN tampilan salah atau sesi berakhir. Harap masukkan PIN lagi.", variant: "destructive" });
-          setValidatedPin(null); // Reset PIN to force re-entry
+          setValidatedPin(null);
         } else {
           toast({ title: "Error", description: `Gagal memuat voucher: ${error.message}`, variant: "destructive" });
         }
@@ -161,7 +155,7 @@ export default function VoucherPage() {
       toast({ title: "Error", description: `Gagal menghapus voucher: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `${selectedVouchers.length} voucher berhasil dihapus.` });
-      fetchVouchers(); // Re-fetch after deletion
+      fetchVouchers();
     }
     setIsDeleteDialogOpen(false);
   };
@@ -176,7 +170,7 @@ export default function VoucherPage() {
     setLoading(true);
     try {
       const { error } = await supabase.functions.invoke('fetch-vouchers-with-pin', {
-        body: { pin: pinInput, filters: {}, from: 0, to: 0 }, // Just for PIN validation
+        body: { pin: pinInput, filters: {}, from: 0, to: 0 },
       });
 
       if (error) {
@@ -268,7 +262,7 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="platform">Platform</Label>
-                <Select value={filters.platform} onValueChange={value => handleFilterChange('platform', value)}>
+                <Select value={filters.platform} onValueChange={value => handleFilterChange('platform', value)} disabled={loadingDenominations}>
                   <SelectTrigger id="platform"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Platform</SelectItem>
@@ -282,7 +276,7 @@ export default function VoucherPage() {
               </div>
               <div>
                 <Label htmlFor="nominal">Nominal</Label>
-                <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)} disabled={!filters.platform}>
+                <Select value={filters.nominal} onValueChange={value => handleFilterChange('nominal', value)} disabled={loadingDenominations || filters.platform === 'all'}>
                   <SelectTrigger id="nominal"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Nominal</SelectItem>
@@ -342,7 +336,7 @@ export default function VoucherPage() {
                     <TableHead>Kode Voucher</TableHead>
                     <TableHead>Platform</TableHead>
                     <TableHead>Source</TableHead>
-                    <TableHead>Invoice</TableHead> {/* Menambahkan kolom Invoice */}
+                    <TableHead>Invoice</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
@@ -358,7 +352,7 @@ export default function VoucherPage() {
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
                       <TableCell>{voucher.source || '-'}</TableCell>
-                      <TableCell>{voucher.invoice || '-'}</TableCell> {/* Menampilkan invoice */}
+                      <TableCell>{voucher.invoice || '-'}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           voucher.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
