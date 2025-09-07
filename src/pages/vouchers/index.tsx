@@ -12,9 +12,10 @@ import { Database } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { subDays, formatISO } from "date-fns";
 import { Trash2, ArrowLeft } from "lucide-react"; 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
@@ -26,21 +27,6 @@ const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game
 // sourceOptions dihapus karena sekarang input teks bebas
 // const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
 const statusOptions: Status[] = ["available", "sold"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
 
 const getFilteredNominalOptionsForFilter = (platformFilter: Platform | 'all') => {
   if (platformFilter === "Itemku") {
@@ -301,7 +287,7 @@ export default function VoucherPage() {
                   <SelectContent>
                     <SelectItem value="all">Semua Nominal</SelectItem>
                     {filteredNominalOptionsForFilter.map(n => (
-                      <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>
+                      <SelectItem key={n} value={n}>{formatNominalDisplay(n, filters.platform)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -367,7 +353,7 @@ export default function VoucherPage() {
                       <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
                       <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {formatNominalDisplay(voucher.nominal)}
+                        {formatNominalDisplay(voucher.nominal, voucher.platform)}
                       </TableCell>
                       <TableCell>{voucher.code}</TableCell>
                       <TableCell>{voucher.platform}</TableCell>
