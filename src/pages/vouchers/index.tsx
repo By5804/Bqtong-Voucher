@@ -332,7 +332,6 @@ export default function VoucherPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[50px]"><Checkbox checked={selectedVouchers.length === vouchers.length && vouchers.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} /></TableHead>
-                      <TableHead>Tanggal</TableHead>
                       <TableHead>Nominal</TableHead>
                       <TableHead>Kode Voucher</TableHead>
                       <TableHead>Platform</TableHead>
@@ -348,7 +347,6 @@ export default function VoucherPage() {
                     {vouchers.map((voucher) => (
                       <TableRow key={voucher.id}>
                         <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
-                        <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>
                           {formatNominalDisplay(voucher.nominal, voucher.platform)}
                         </TableCell>
