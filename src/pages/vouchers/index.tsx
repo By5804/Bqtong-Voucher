@@ -327,46 +327,52 @@ export default function VoucherPage() {
         <CardContent>
           {loading ? (<p>Memuat data...</p>) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]"><Checkbox checked={selectedVouchers.length === vouchers.length && vouchers.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} /></TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Nominal</TableHead>
-                    <TableHead>Kode Voucher</TableHead>
-                    <TableHead>Platform</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vouchers.map((voucher) => (
-                    <TableRow key={voucher.id}>
-                      <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
-                      <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        {formatNominalDisplay(voucher.nominal, voucher.platform)}
-                      </TableCell>
-                      <TableCell>{voucher.code}</TableCell>
-                      <TableCell>{voucher.platform}</TableCell>
-                      <TableCell>{voucher.source || '-'}</TableCell>
-                      <TableCell>{voucher.invoice || '-'}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          voucher.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {voucher.status === 'available' ? 'Tersedia' : 'Terjual'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => { setSelectedVouchers([voucher.id]); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]"><Checkbox checked={selectedVouchers.length === vouchers.length && vouchers.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} /></TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Nominal</TableHead>
+                      <TableHead>Kode Voucher</TableHead>
+                      <TableHead>Platform</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Invoice</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Tgl Input</TableHead>
+                      <TableHead>Tgl Terjual</TableHead>
+                      <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {vouchers.map((voucher) => (
+                      <TableRow key={voucher.id}>
+                        <TableCell><Checkbox checked={selectedVouchers.includes(voucher.id)} onCheckedChange={(checked) => handleSelectVoucher(voucher.id, !!checked)} /></TableCell>
+                        <TableCell>{new Date(voucher.tanggal + 'T00:00:00').toLocaleDateString('id-ID')}</TableCell>
+                        <TableCell>
+                          {formatNominalDisplay(voucher.nominal, voucher.platform)}
+                        </TableCell>
+                        <TableCell>{voucher.code}</TableCell>
+                        <TableCell>{voucher.platform}</TableCell>
+                        <TableCell>{voucher.source || '-'}</TableCell>
+                        <TableCell>{voucher.invoice || '-'}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            voucher.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {voucher.status === 'available' ? 'Tersedia' : 'Terjual'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{new Date(voucher.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</TableCell>
+                        <TableCell>{voucher.sold_at ? new Date(voucher.sold_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => { setSelectedVouchers([voucher.id]); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               {vouchers.length === 0 && !loading && (<div className="text-center py-10 text-gray-500"><p>Tidak ada voucher yang cocok dengan filter Anda.</p></div>)}
               <div className="flex items-center justify-between mt-4">
                 <div>
