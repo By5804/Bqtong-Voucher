@@ -195,7 +195,11 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
     if (error) {
       toast({ title: "Error", description: `Gagal mengupdate: ${error.message}`, variant: "destructive" });
     } else {
-      toast({ title: "Sukses", description: `${data.updatedCount} voucher berhasil ditandai terjual untuk menyamakan stok.` });
+      if (data.updatedCount > 0) {
+        toast({ title: "Sukses", description: `${data.updatedCount} voucher berhasil ditandai terjual untuk menyamakan stok.` });
+      } else {
+        toast({ title: "Info", description: "Tidak ada voucher yang perlu ditandai terjual. Stok mungkin sudah sesuai.", variant: "default" });
+      }
       onActionComplete();
       onClose();
     }
