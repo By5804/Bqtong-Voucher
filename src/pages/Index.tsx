@@ -8,7 +8,8 @@ import { MarkSoldQuickAction } from "@/components/MarkSoldQuickAction";
 import { ViewSoldVouchersQuickAction } from "@/components/ViewSoldVouchersQuickAction";
 import { ManageProductMappingsQuickAction } from "@/components/ManageProductMappingsQuickAction";
 import { ManageDenominationsQuickAction } from "@/components/ManageDenominationsQuickAction";
-import { MoveVouchersQuickAction } from "@/components/MoveVouchersQuickAction"; // Import baru
+import { MoveVouchersQuickAction } from "@/components/MoveVouchersQuickAction";
+import { MoveDenominationQuickAction } from "@/components/MoveDenominationQuickAction"; // Import baru
 import { PlusCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +80,7 @@ const Index = () => {
           </Button>
           <ManageProductMappingsQuickAction />
           <ManageDenominationsQuickAction />
+          <MoveDenominationQuickAction />
         </div>
       </div>
 
