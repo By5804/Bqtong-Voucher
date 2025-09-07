@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { Database } from "@/integrations/supabase/types";
+import { parseNominalInput } from "@/lib/utils"; // Import baru
 
 type PlatformDenomination = Database['public']['Tables']['platform_denominations']['Row'];
 
@@ -92,7 +93,8 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       toast({ title: "Error", description: "Nama nominal tidak boleh kosong.", variant: "destructive" });
       return;
     }
-    const updatedDenoms = [...selectedPlatform.denominations, newDenomName.trim()];
+    const parsedNewDenom = parseNominalInput(newDenomName); // Gunakan fungsi parse
+    const updatedDenoms = [...selectedPlatform.denominations, parsedNewDenom];
     setLoading(true);
     const { data, error } = await supabase.from('platform_denominations').update({ denominations: updatedDenoms }).eq('platform_name', selectedPlatform.platform_name).select().single();
     if (error) {
@@ -109,12 +111,13 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const handleSaveDenomEdit = async () => {
     if (!selectedPlatform || !denomToEdit) return;
     setLoading(true);
-    const { error } = await supabase.rpc('rename_denomination', { p_platform_name: selectedPlatform.platform_name, old_denom_name: denomToEdit.oldName, new_denom_name: denomToEdit.newName });
+    const parsedNewDenom = parseNominalInput(denomToEdit.newName); // Gunakan fungsi parse
+    const { error } = await supabase.rpc('rename_denomination', { p_platform_name: selectedPlatform.platform_name, old_denom_name: denomToEdit.oldName, new_denom_name: parsedNewDenom });
     if (error) {
       toast({ title: "Error", description: `Gagal mengganti nama nominal: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: "Nama nominal berhasil diperbarui." });
-      const updatedPlatform = { ...selectedPlatform, denominations: selectedPlatform.denominations.map(d => d === denomToEdit.oldName ? denomToEdit.newName : d) };
+      const updatedPlatform = { ...selectedPlatform, denominations: selectedPlatform.denominations.map(d => d === denomToEdit.oldName ? parsedNewDenom : d) };
       setSelectedPlatform(updatedPlatform);
       setDenomToEdit(null);
     }
@@ -179,7 +182,7 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
         <div className="space-y-2">
           <Label htmlFor="new-denom-input">Tambah Nominal Baru</Label>
           <div className="flex gap-2">
-            <Input id="new-denom-input" value={newDenomName} onChange={e => setNewDenomName(e.target.value)} placeholder="Contoh: 50k IDR" disabled={loading} />
+            <Input id="new-denom-input" value={newDenomName} onChange={e => setNewDenomName(e.target.value)} placeholder="Contoh: 50000 atau Random Steam Key" disabled={loading} />
             <Button onClick={handleAddDenom} disabled={loading || !newDenomName.trim()}><PlusCircle className="h-4 w-4 mr-2" /> Tambah</Button>
           </div>
         </div>

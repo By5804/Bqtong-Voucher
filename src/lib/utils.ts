@@ -29,3 +29,22 @@ export const formatNominalDisplay = (nominal: string | number, platform?: string
   // For any other number, format as IDR by default.
   return `${Number(strNominal).toLocaleString('id-ID')} IDR`;
 };
+
+export const parseNominalInput = (input: string): string => {
+  const trimmedInput = input.trim();
+
+  // Check for common suffixes and remove them, then strip non-numeric characters
+  let parsed = trimmedInput
+    .replace(/\s*IDR$/i, '') // Remove IDR suffix
+    .replace(/\s*RBX$/i, '') // Remove RBX suffix
+    .replace(/\s*VP$/i, '')  // Remove VP suffix
+    .replace(/\./g, '');     // Remove thousands separators (dots)
+
+  // If after stripping suffixes and dots, it's a valid number, return it as a number string
+  if (!isNaN(Number(parsed)) && parsed !== '') {
+    return String(Number(parsed)); // Ensure it's a clean number string
+  }
+
+  // If it's not a number (e.g., "Random Steam Key") or a number with other characters, return as is
+  return trimmedInput;
+};
