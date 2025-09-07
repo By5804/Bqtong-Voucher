@@ -29,7 +29,7 @@ export const StockDisplay = () => {
   const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
 
   const visiblePlatforms = useMemo(() => 
-    denominationPlatforms.filter(p => p.platform_name !== "wahyu"),
+    denominationPlatforms.filter(p => p.is_visible_on_dashboard),
     [denominationPlatforms]
   );
 

@@ -83,18 +83,21 @@ export type Database = {
           denominations: string[];
           created_at: string;
           is_external_stock_enabled: boolean | null;
+          is_visible_on_dashboard: boolean;
         };
         Insert: {
           platform_name: string;
           denominations?: string[];
           created_at?: string;
           is_external_stock_enabled?: boolean | null;
+          is_visible_on_dashboard?: boolean;
         };
         Update: {
           platform_name?: string;
           denominations?: string[];
           created_at?: string;
           is_external_stock_enabled?: boolean | null;
+          is_visible_on_dashboard?: boolean;
         };
       };
       profiles: {
