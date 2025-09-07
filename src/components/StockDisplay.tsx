@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,17 +9,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Database } from "@/integrations/supabase/types";
+import { useDenominations } from "@/contexts/DenominationContext";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-const visiblePlatformOptions: Platform[] = platformOptions.filter(p => p !== "wahyu"); // Filter out "wahyu"
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
   if (strNominal === "100") return "100 RBX";
   if (strNominal === "200") return "200 RBX";
   if (strNominal === "400") return "400 RBX";
-  if (strNominal === "500") return "500 RBX"; // Added 500 RBX
+  if (strNominal === "500") return "500 RBX";
   if (strNominal.includes("Random Steam Key")) return strNominal;
 
   const numNominal = parseInt(strNominal, 10);
@@ -36,64 +35,56 @@ type StockData = {
   external: number | 'N/A' | 'loading' | null;
 };
 
-const getNominalsForPlatform = (currentPlatform: Platform) => {
-  if (currentPlatform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (currentPlatform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return []; 
-};
-
 export const StockDisplay = () => {
   const [stock, setStock] = useState<StockData[]>([]);
   const [loadingInternal, setLoadingInternal] = useState(true);
-  const [loadingExternalLG, setLoadingExternalLG] = useState(false);
-  const [loadingExternalItemku, setLoadingExternalItemku] = useState(false);
-  const [loadingExternalItemkuSteam, setLoadingExternalItemkuSteam] = useState(false);
+  const [loadingExternalStates, setLoadingExternalStates] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+  const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
 
-  const fetchInternalStock = async () => {
+  const visiblePlatforms = useMemo(() => 
+    denominationPlatforms.filter(p => p.platform_name !== "wahyu"),
+    [denominationPlatforms]
+  );
+
+  const fetchInternalStock = useCallback(async () => {
+    if (loadingDenominations || visiblePlatforms.length === 0) {
+      if (!loadingDenominations) setLoadingInternal(false);
+      return;
+    }
+
     setLoadingInternal(true);
-    const initialStockPromises: Promise<Omit<StockData, 'external'>>[] = [];
-    for (const platform of visiblePlatformOptions) { // Use visiblePlatformOptions here
-      const nominalsForPlatform = getNominalsForPlatform(platform);
+    const stockPromises: Promise<StockData>[] = [];
 
-      for (const nominal of nominalsForPlatform) {
+    for (const platform of visiblePlatforms) {
+      for (const nominal of platform.denominations) {
         const promise = supabase
           .from("vouchers")
           .select("*", { count: "exact", head: true })
-          .eq("platform", platform)
+          .eq("platform", platform.platform_name)
           .eq("nominal", nominal)
           .eq("status", "available")
-          .then(({ count }) => ({ platform, nominal, internal: count || 0 }));
-        initialStockPromises.push(promise);
+          .then(({ count }) => ({
+            platform: platform.platform_name as Platform,
+            nominal,
+            internal: count || 0,
+            external: (platform.platform_name === "Itemku" || platform.platform_name === "LG" || platform.platform_name === "Itemku Steam Game Key") ? null : 'N/A' as const
+          }));
+        stockPromises.push(promise);
       }
     }
-    const internalResults = await Promise.all(initialStockPromises);
     
-    const initialData = internalResults.map(item => ({ 
-      ...item, 
-      external: item.platform === "wahyu" ? 'N/A' : (item.platform === "Itemku" || item.platform === "LG" || item.platform === "Itemku Steam Game Key") ? null : 'N/A' as const 
-    }));
-    setStock(initialData);
+    const results = await Promise.all(stockPromises);
+    setStock(results);
     setLoadingInternal(false);
-  };
+  }, [loadingDenominations, visiblePlatforms]);
 
-  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform, setLoading: (loading: boolean) => void) => {
-    setLoading(true);
-    
-    if (targetPlatform === "wahyu") { // Hanya "wahyu" yang tidak memiliki pengecekan stok eksternal
-      setStock(prevStock => 
-        prevStock.map(s => 
-          s.platform === targetPlatform ? { ...s, external: 'N/A' } : s
-        )
-      );
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    fetchInternalStock();
+  }, [fetchInternalStock]);
+
+  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform) => {
+    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: true }));
 
     setStock(prevStock => 
       prevStock.map(s => 
@@ -108,21 +99,12 @@ export const StockDisplay = () => {
             body: { platform: item.platform, nominal: item.nominal },
           });
 
-          console.log(`[StockDisplay] Invoke result for ${item.platform} ${item.nominal}:`, { data, error });
-
           if (error) {
-            console.error(`[StockDisplay] Frontend error for ${item.platform} ${item.nominal}:`, error);
-            if (error.status === 404 && error.context?.body) {
-                const errorBody = JSON.parse(error.context.body);
-                toast({ title: "Error", description: errorBody.error, variant: "destructive" });
-            } else {
-                toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${error.message}`, variant: "destructive" });
-            }
+            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${error.message}`, variant: "destructive" });
             return { ...item, external: 'N/A' as const };
           }
           return { ...item, external: data.stock };
         } catch (err: any) {
-          console.error(`[StockDisplay] General catch error for ${item.platform} ${item.nominal}:`, err);
           toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal)}: ${err.message}`, variant: "destructive" });
           return { ...item, external: 'N/A' as const };
         }
@@ -130,31 +112,20 @@ export const StockDisplay = () => {
 
     const results = await Promise.all(externalStockPromises);
     setStock(prevStock => {
-        const newStock = prevStock.map(s => {
-            const updatedItem = results.find(r => r.platform === s.platform && r.nominal === s.nominal);
-            return updatedItem ? updatedItem : s;
+        const newStock = [...prevStock];
+        results.forEach(updatedItem => {
+          const index = newStock.findIndex(s => s.platform === updatedItem.platform && s.nominal === updatedItem.nominal);
+          if (index !== -1) {
+            newStock[index] = updatedItem;
+          }
         });
         return newStock;
     });
 
-    setLoading(false);
+    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
   }, [stock, toast]);
 
-  const fetchExternalStockLG = useCallback(() => {
-    fetchExternalStockForPlatform("LG", setLoadingExternalLG);
-  }, [fetchExternalStockForPlatform]);
-
-  const fetchExternalStockItemku = useCallback(() => {
-    fetchExternalStockForPlatform("Itemku", setLoadingExternalItemku);
-  }, [fetchExternalStockForPlatform]);
-
-  const fetchExternalStockItemkuSteam = useCallback(() => {
-    fetchExternalStockForPlatform("Itemku Steam Game Key", setLoadingExternalItemkuSteam);
-  }, [fetchExternalStockForPlatform]);
-
-  useEffect(() => {
-    fetchInternalStock();
-  }, []);
+  const isLoading = loadingInternal || loadingDenominations;
 
   return (
     <TooltipProvider>
@@ -162,13 +133,13 @@ export const StockDisplay = () => {
         <h2 className="text-2xl font-bold text-center mb-4">Stok Voucher Tersedia</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {loadingInternal
-            ? visiblePlatformOptions.map((p) => ( // Use visiblePlatformOptions here
-                <Card key={p}>
+          {isLoading
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <Card key={`skel-${i}`}>
                   <CardHeader><CardTitle><Skeleton className="h-6 w-24" /></CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                    {getNominalsForPlatform(p).map((n) => (
-                      <div key={`${p}-${n}`} className="flex justify-between items-center">
+                    {Array.from({ length: 4 }).map((_, j) => (
+                      <div key={`skel-item-${j}`} className="flex justify-between items-center">
                         <span><Skeleton className="h-4 w-16" /></span>
                         <span><Skeleton className="h-4 w-8" /></span>
                       </div>
@@ -176,51 +147,19 @@ export const StockDisplay = () => {
                   </CardContent>
                 </Card>
               ))
-            : visiblePlatformOptions.map((platform) => ( // Use visiblePlatformOptions here
-                <Card key={platform}>
+            : visiblePlatforms.map((platform) => (
+                <Card key={platform.platform_name}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-lg font-medium">{platform}</CardTitle>
-                    {platform === "LG" && (
+                    <CardTitle className="text-lg font-medium">{platform.platform_name}</CardTitle>
+                    {(platform.platform_name === "LG" || platform.platform_name === "Itemku" || platform.platform_name === "Itemku Steam Game Key") && (
                       <Button 
-                        onClick={fetchExternalStockLG} 
-                        disabled={loadingExternalLG}
+                        onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
+                        disabled={loadingExternalStates[platform.platform_name]}
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-1 text-xs"
                       >
-                        {loadingExternalLG ? (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                        Refresh
-                      </Button>
-                    )}
-                    {platform === "Itemku" && (
-                      <Button 
-                        onClick={fetchExternalStockItemku} 
-                        disabled={loadingExternalItemku}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-1 text-xs"
-                      >
-                        {loadingExternalItemku ? (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                        Refresh
-                      </Button>
-                    )}
-                    {platform === "Itemku Steam Game Key" && (
-                      <Button 
-                        onClick={fetchExternalStockItemkuSteam} 
-                        disabled={loadingExternalItemkuSteam}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-1 text-xs"
-                      >
-                        {loadingExternalItemkuSteam ? (
+                        {loadingExternalStates[platform.platform_name] ? (
                           <RefreshCw className="h-3 w-3 animate-spin" />
                         ) : (
                           <RefreshCw className="h-3 w-3" />
@@ -231,22 +170,17 @@ export const StockDisplay = () => {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {stock
-                      .filter(item => item.platform === platform)
+                      .filter(item => item.platform === platform.platform_name)
                       .sort((a, b) => {
-                        const nominalA = a.nominal;
-                        const nominalB = b.nominal;
-                        const numA = parseInt(nominalA, 10);
-                        const numB = parseInt(nominalB, 10);
-
-                        if (!isNaN(numA) && !isNaN(numB)) {
-                          return numA - numB;
-                        }
+                        const numA = parseInt(a.nominal, 10);
+                        const numB = parseInt(b.nominal, 10);
+                        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
                         if (!isNaN(numA)) return -1;
                         if (!isNaN(numB)) return 1;
-                        return nominalA.localeCompare(nominalB);
+                        return a.nominal.localeCompare(b.nominal);
                       })
                       .map(({ nominal, internal, external }) => (
-                        <div key={`${platform}-${nominal}`} className="flex justify-between items-center">
+                        <div key={`${platform.platform_name}-${nominal}`} className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">
                             {formatNominalDisplay(nominal)}
                           </span>

@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import VoucherPage from "./pages/vouchers";
 import InputVouchersPage from "./pages/InputVouchers";
 import ManualStockAdjustmentPage from "./pages/ManualStockAdjustment";
+import { DenominationProvider } from "./contexts/DenominationContext";
 
 const queryClient = new QueryClient();
 
@@ -18,16 +19,18 @@ const App = () => (
     <Sonner />
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/vouchers" element={<VoucherPage />} />
-            <Route path="/input-vouchers" element={<InputVouchersPage />} />
-            <Route path="/manual-stock-adjustment" element={<ManualStockAdjustmentPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <DenominationProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/vouchers" element={<VoucherPage />} />
+              <Route path="/input-vouchers" element={<InputVouchersPage />} />
+              <Route path="/manual-stock-adjustment" element={<ManualStockAdjustmentPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </DenominationProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </React.Fragment>

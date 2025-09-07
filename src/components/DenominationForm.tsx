@@ -1,48 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Edit } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { Database } from "@/integrations/supabase/types";
 
 type PlatformDenomination = Database['public']['Tables']['platform_denominations']['Row'];
 
 export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const [platformName, setPlatformName] = useState<string>('');
-  const [denominationsInput, setDenominationsInput] = useState<string>(''); // Comma-separated string
+  const [denominationsInput, setDenominationsInput] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [platformDenominations, setPlatformDenominations] = useState<PlatformDenomination[]>([]);
   const [editingPlatform, setEditingPlatform] = useState<PlatformDenomination | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [platformToDelete, setPlatformToDelete] = useState<string | null>(null);
 
   const { toast } = useToast();
-
-  const fetchPlatformDenominations = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('platform_denominations')
-      .select('*')
-      .order('platform_name', { ascending: true });
-
-    if (error) {
-      toast({ title: "Error", description: `Gagal memuat data: ${error.message}`, variant: "destructive" });
-    } else {
-      setPlatformDenominations(data || []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchPlatformDenominations();
-  }, []);
+  const { platforms: platformDenominations, loading: loadingDenominations, refreshDenominations } = useDenominations();
 
   const resetForm = () => {
     setPlatformName('');
@@ -67,26 +49,16 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       denominations: denominationsArray,
     };
 
-    let error;
-    if (editingPlatform) {
-      const { error: updateError } = await supabase
-        .from('platform_denominations')
-        .update(payload)
-        .eq('platform_name', editingPlatform.platform_name);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('platform_denominations')
-        .insert(payload);
-      error = insertError;
-    }
+    const { error } = await supabase
+      .from('platform_denominations')
+      .upsert(payload, { onConflict: 'platform_name' });
 
     if (error) {
       toast({ title: "Error", description: `Gagal menyimpan: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: `Data berhasil ${editingPlatform ? 'diperbarui' : 'ditambahkan'}.` });
       resetForm();
-      fetchPlatformDenominations();
+      refreshDenominations();
     }
     setLoading(false);
   };
@@ -115,7 +87,7 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       toast({ title: "Error", description: `Gagal menghapus: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: "Data berhasil dihapus." });
-      fetchPlatformDenominations();
+      refreshDenominations();
     }
     setLoading(false);
     setIsDeleteDialogOpen(false);
@@ -161,7 +133,7 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       </form>
 
       <h3 className="text-lg font-semibold mt-8">Daftar Platform & Nominal</h3>
-      {loading && platformDenominations.length === 0 ? (
+      {loadingDenominations && platformDenominations.length === 0 ? (
         <p>Memuat daftar...</p>
       ) : platformDenominations.length === 0 ? (
         <p className="text-muted-foreground">Belum ada data yang tersimpan.</p>

@@ -5,34 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
 import { ArrowDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
-
-type PlatformDenomination = Database['public']['Tables']['platform_denominations']['Row'];
+import { useDenominations } from "@/contexts/DenominationContext";
 
 export const MoveDenominationForm = ({ onClose }: { onClose: () => void; }) => {
   const [loading, setLoading] = useState(false);
-  const [allPlatforms, setAllPlatforms] = useState<PlatformDenomination[]>([]);
   const [sourcePlatform, setSourcePlatform] = useState<string>('');
   const [targetPlatform, setTargetPlatform] = useState<string>('');
   const [denominationToMove, setDenominationToMove] = useState<string>('');
   
   const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchPlatforms = async () => {
-      setLoading(true);
-      const { data, error } = await supabase.from('platform_denominations').select('*');
-      if (error) {
-        toast({ title: "Error", description: "Gagal memuat data platform.", variant: "destructive" });
-      } else {
-        setAllPlatforms(data || []);
-      }
-      setLoading(false);
-    };
-    fetchPlatforms();
-  }, [toast]);
+  const { platforms: allPlatforms, loading: loadingDenominations, refreshDenominations } = useDenominations();
 
   const sourceDenominations = useMemo(() => {
     return allPlatforms.find(p => p.platform_name === sourcePlatform)?.denominations || [];
@@ -71,12 +55,13 @@ export const MoveDenominationForm = ({ onClose }: { onClose: () => void; }) => {
       toast({ title: "Error", description: `Gagal memindahkan: ${error.message}`, variant: "destructive" });
     } else {
       toast({ title: "Sukses", description: data.message });
+      refreshDenominations();
       onClose();
     }
     setLoading(false);
   };
 
-  const isMoveDisabled = loading || !sourcePlatform || !targetPlatform || !denominationToMove;
+  const isMoveDisabled = loading || loadingDenominations || !sourcePlatform || !targetPlatform || !denominationToMove;
 
   return (
     <div className="space-y-4">
@@ -85,7 +70,7 @@ export const MoveDenominationForm = ({ onClose }: { onClose: () => void; }) => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="source-platform">Platform</Label>
-            <Select value={sourcePlatform} onValueChange={setSourcePlatform} required>
+            <Select value={sourcePlatform} onValueChange={setSourcePlatform} required disabled={loadingDenominations}>
               <SelectTrigger id="source-platform"><SelectValue placeholder="Pilih Platform Sumber" /></SelectTrigger>
               <SelectContent>
                 {allPlatforms.map(p => <SelectItem key={p.platform_name} value={p.platform_name}>{p.platform_name}</SelectItem>)}
@@ -94,7 +79,7 @@ export const MoveDenominationForm = ({ onClose }: { onClose: () => void; }) => {
           </div>
           <div>
             <Label htmlFor="source-denomination">Nominal</Label>
-            <Select value={denominationToMove} onValueChange={setDenominationToMove} required disabled={!sourcePlatform}>
+            <Select value={denominationToMove} onValueChange={setDenominationToMove} required disabled={!sourcePlatform || loadingDenominations}>
               <SelectTrigger id="source-denomination"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
               <SelectContent>
                 {sourceDenominations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -112,7 +97,7 @@ export const MoveDenominationForm = ({ onClose }: { onClose: () => void; }) => {
         <h4 className="font-semibold text-sm">Tujuan</h4>
         <div>
           <Label htmlFor="target-platform">Platform</Label>
-          <Select value={targetPlatform} onValueChange={setTargetPlatform} required disabled={!sourcePlatform}>
+          <Select value={targetPlatform} onValueChange={setTargetPlatform} required disabled={!sourcePlatform || loadingDenominations}>
             <SelectTrigger id="target-platform"><SelectValue placeholder="Pilih Platform Tujuan" /></SelectTrigger>
             <SelectContent>
               {targetPlatformOptions.map(p => <SelectItem key={p.platform_name} value={p.platform_name}>{p.platform_name}</SelectItem>)}
@@ -122,7 +107,7 @@ export const MoveDenominationForm = ({ onClose }: { onClose: () => void; }) => {
       </div>
 
       <Button onClick={handleMove} disabled={isMoveDisabled} className="w-full">
-        {loading ? "Memproses..." : "Pindahkan Nominal"}
+        {loading || loadingDenominations ? "Memproses..." : "Pindahkan Nominal"}
       </Button>
     </div>
   );
