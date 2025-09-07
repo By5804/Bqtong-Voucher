@@ -84,6 +84,7 @@ export type Database = {
           created_at: string;
           is_external_stock_enabled: boolean | null;
           is_visible_on_dashboard: boolean;
+          sort_order: number; // Added sort_order
         };
         Insert: {
           platform_name: string;
@@ -91,6 +92,7 @@ export type Database = {
           created_at?: string;
           is_external_stock_enabled?: boolean | null;
           is_visible_on_dashboard?: boolean;
+          sort_order?: number; // Added sort_order
         };
         Update: {
           platform_name?: string;
@@ -98,6 +100,7 @@ export type Database = {
           created_at?: string;
           is_external_stock_enabled?: boolean | null;
           is_visible_on_dashboard?: boolean;
+          sort_order?: number; // Added sort_order
         };
       };
       profiles: {
@@ -107,7 +110,7 @@ export type Database = {
           last_name: string | null;
           avatar_url: string | null;
           updated_at: string | null;
-        };
+        >;
         Insert: {
           id: string;
           first_name?: string | null;

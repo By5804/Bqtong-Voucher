@@ -7,20 +7,20 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Edit, PlusCircle, ArrowLeft, Save } from "lucide-react";
+import { Trash2, Edit, PlusCircle, ArrowLeft, Save, ArrowUp, ArrowDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { Database } from "@/integrations/supabase/types";
-import { parseNominalInput } from "@/lib/utils"; // Import baru
+import { parseNominalInput } from "@/lib/utils";
 
 type PlatformDenomination = Database['public']['Tables']['platform_denominations']['Row'];
 
 export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const { toast } = useToast();
-  const { platforms, loading: loadingDenominations, refreshDenominations } = useDenominations();
+  const { platforms, loading: loadingDenominations, refreshDenominations, movePlatformInOrder } = useDenominations();
 
   const [view, setView] = useState<'platforms' | 'denominations'>('platforms');
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformDenomination | null>(null);
@@ -64,7 +64,9 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
         }
       }
     } else { // Adding new platform
-      const { error } = await supabase.from('platform_denominations').insert({ platform_name: trimmedName, denominations: [] });
+      // When adding a new platform, assign a sort_order that places it at the end
+      const maxSortOrder = platforms.reduce((max, p) => Math.max(max, p.sort_order || 0), 0);
+      const { error } = await supabase.from('platform_denominations').insert({ platform_name: trimmedName, denominations: [], sort_order: maxSortOrder + 1 });
       if (error) {
         toast({ title: "Error", description: `Gagal menambah platform: ${error.message}`, variant: "destructive" });
       } else {
@@ -93,7 +95,7 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       toast({ title: "Error", description: "Nama nominal tidak boleh kosong.", variant: "destructive" });
       return;
     }
-    const parsedNewDenom = parseNominalInput(newDenomName); // Gunakan fungsi parse
+    const parsedNewDenom = parseNominalInput(newDenomName);
     const updatedDenoms = [...selectedPlatform.denominations, parsedNewDenom];
     setLoading(true);
     const { data, error } = await supabase.from('platform_denominations').update({ denominations: updatedDenoms }).eq('platform_name', selectedPlatform.platform_name).select().single();
@@ -111,7 +113,7 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const handleSaveDenomEdit = async () => {
     if (!selectedPlatform || !denomToEdit) return;
     setLoading(true);
-    const parsedNewDenom = parseNominalInput(denomToEdit.newName); // Gunakan fungsi parse
+    const parsedNewDenom = parseNominalInput(denomToEdit.newName);
     const { error } = await supabase.rpc('rename_denomination', { p_platform_name: selectedPlatform.platform_name, old_denom_name: denomToEdit.oldName, new_denom_name: parsedNewDenom });
     if (error) {
       toast({ title: "Error", description: `Gagal mengganti nama nominal: ${error.message}`, variant: "destructive" });
@@ -170,6 +172,10 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       refreshDenominations();
     }
     setLoading(false);
+  };
+
+  const handleMovePlatform = async (platformName: string, direction: 'up' | 'down') => {
+    await movePlatformInOrder(platformName, direction);
   };
 
   if (view === 'denominations' && selectedPlatform) {
@@ -248,9 +254,9 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
           <TableHeader><TableRow><TableHead>Nama Platform</TableHead><TableHead>Jumlah Nominal</TableHead><TableHead>Cek Stok Eksternal</TableHead><TableHead>Tampil di Dashboard</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
           <TableBody>
             {loadingDenominations ? (
-              <TableRow><TableCell colSpan={5} className="text-center">Memuat...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center">Memuat...</TableCell></TableRow>
             ) : (
-              platforms.map(p => (
+              platforms.map((p, index) => (
                 <TableRow key={p.platform_name}>
                   <TableCell className="font-medium">{p.platform_name}</TableCell>
                   <TableCell><Badge variant="secondary">{p.denominations.length}</Badge></TableCell>
@@ -269,6 +275,12 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
                     />
                   </TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
+                    <Button variant="outline" size="icon" onClick={() => handleMovePlatform(p.platform_name, 'up')} disabled={loading || index === 0}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => handleMovePlatform(p.platform_name, 'down')} disabled={loading || index === platforms.length - 1}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleSwitchToDenomView(p)}>Kelola Nominal</Button>
                     <Button variant="outline" size="icon" onClick={() => handleOpenPlatformModal(p)}><Edit className="h-4 w-4" /></Button>
                     <AlertDialog>
