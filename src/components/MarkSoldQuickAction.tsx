@@ -8,38 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { Tag, RefreshCw } from "lucide-react"; // Import RefreshCw for loading spinner
+import { Tag, RefreshCw } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton for loading state
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
-
-const getFilteredNominalOptions = (platform: Platform | '') => {
-  if (platform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (platform === "LG" || platform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (platform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return [];
-};
 
 const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => void; onActionComplete: () => void; }) => {
   const [platform, setPlatform] = useState<Platform | ''>('');
@@ -48,12 +23,18 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
   const [availableStock, setAvailableStock] = useState<number | null>(null);
   const [externalStock, setExternalStock] = useState<number | 'N/A' | 'loading' | null>(null);
   const [loadingExternalStock, setLoadingExternalStock] = useState(false);
-  const [remainingStockInput, setRemainingStockInput] = useState<string>(''); // User input for stock on platform
-  const [quantityToMarkSold, setQuantityToMarkSold] = useState<number>(1); // The actual quantity to submit
-  const [isQuantityCalculated, setIsQuantityCalculated] = useState(false); // To control readOnly state
+  const [remainingStockInput, setRemainingStockInput] = useState<string>('');
+  const [quantityToMarkSold, setQuantityToMarkSold] = useState<number>(1);
+  const [isQuantityCalculated, setIsQuantityCalculated] = useState(false);
   const { toast } = useToast();
 
-  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+  const { platforms: denominationPlatforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
+
+  const platformOptions = useMemo(() => denominationPlatforms.map(p => p.platform_name), [denominationPlatforms]);
+  const filteredNominalOptions = useMemo(() => {
+    if (!platform) return [];
+    return getDenominationsForPlatform(platform as string);
+  }, [platform, getDenominationsForPlatform]);
 
   const fetchAvailableStock = useCallback(async () => {
     if (platform && nominal) {
@@ -79,7 +60,6 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
   }, [platform, nominal, toast]);
 
   const fetchExternalStock = useCallback(async () => {
-    // Menghapus logika khusus untuk "wahyu" atau "Itemku Steam Game Key"
     if (!platform || !nominal) {
       setExternalStock(null);
       setLoadingExternalStock(false);
@@ -99,7 +79,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
             const errorBody = JSON.parse(error.context.body);
             toast({ title: "Error", description: errorBody.error, variant: "destructive" });
         } else {
-            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${error.message}`, variant: "destructive" });
+            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal, platform)}: ${error.message}`, variant: "destructive" });
         }
         setExternalStock('N/A');
       } else {
@@ -107,7 +87,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
       }
     } catch (err: any) {
       console.error(`General catch error for ${platform} ${nominal}:`, err);
-      toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal)}: ${err.message}`, variant: "destructive" });
+      toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${platform} ${formatNominalDisplay(nominal, platform)}: ${err.message}`, variant: "destructive" });
       setExternalStock('N/A');
     } finally {
       setLoadingExternalStock(false);
@@ -116,9 +96,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
 
   useEffect(() => {
     if (nominal && !filteredNominalOptions.includes(nominal)) {
-      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
-    } else if (!nominal && filteredNominalOptions.length > 0) {
-      setNominal(filteredNominalOptions[0]);
+      setNominal('');
     }
     fetchAvailableStock();
     fetchExternalStock();
@@ -224,14 +202,14 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
     setLoading(false);
   };
 
-  const isSubmitDisabled = loading || !platform || !nominal || quantityToMarkSold <= 0 || (availableStock !== null && quantityToMarkSold > availableStock);
-  const isMatchStockDisabled = loading || loadingExternalStock || !platform || !nominal || availableStock === null || externalStock === null || externalStock === 'N/A' || externalStock === 'loading' || (typeof externalStock === 'number' && externalStock >= availableStock);
+  const isSubmitDisabled = loading || loadingDenominations || !platform || !nominal || quantityToMarkSold <= 0 || (availableStock !== null && quantityToMarkSold > availableStock);
+  const isMatchStockDisabled = loading || loadingDenominations || loadingExternalStock || !platform || !nominal || availableStock === null || externalStock === null || externalStock === 'N/A' || externalStock === 'loading' || (typeof externalStock === 'number' && externalStock >= availableStock);
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
       <div>
         <Label className="block text-sm font-medium mb-1">Platform</Label>
-        <Select value={platform} onValueChange={(v: Platform) => setPlatform(v)} required disabled={loading}>
+        <Select value={platform} onValueChange={(v: Platform) => setPlatform(v)} required disabled={loading || loadingDenominations}>
           <SelectTrigger><SelectValue placeholder="Pilih Platform" /></SelectTrigger>
           <SelectContent>
             {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -240,10 +218,10 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
       </div>
       <div>
         <Label className="block text-sm font-medium mb-1">Nominal</Label>
-        <Select value={nominal} onValueChange={setNominal} required disabled={loading || !platform}>
+        <Select value={nominal} onValueChange={setNominal} required disabled={loading || loadingDenominations || !platform}>
           <SelectTrigger><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
           <SelectContent>
-            {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>)}
+            {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n, platform)}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -288,7 +266,7 @@ const UpdateSoldVouchersForm = ({ onClose, onActionComplete }: { onClose: () => 
         />
       </div>
       <Button type="submit" disabled={isSubmitDisabled} className="w-full md:col-span-2">
-        {loading ? "Memproses..." : "Update Terjual"}
+        {loading || loadingDenominations ? "Memproses..." : "Update Terjual"}
       </Button>
       <Button 
         type="button" 

@@ -9,59 +9,39 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { ArrowLeft, PlusCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
-
-const getFilteredNominalOptions = (platform: Platform | '') => {
-  if (platform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (platform === "LG" || platform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (platform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return [];
-};
 
 const CHUNK_SIZE = 100;
 
 const ManualStockAdjustmentPage = () => {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
-  const [platform, setPlatform] = useState<Platform>("LG");
-  const [nominal, setNominal] = useState("50000");
+  const [platform, setPlatform] = useState<Platform | ''>('');
+  const [nominal, setNominal] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { platforms: denominationPlatforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
 
-  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+  const platformOptions = useMemo(() => denominationPlatforms.map(p => p.platform_name), [denominationPlatforms]);
+  const filteredNominalOptions = useMemo(() => getDenominationsForPlatform(platform as string), [platform, getDenominationsForPlatform]);
+
+  useEffect(() => {
+    if (platform && !platformOptions.includes(platform)) {
+      setPlatform('');
+    }
+  }, [platform, platformOptions]);
 
   useEffect(() => {
     if (nominal && !filteredNominalOptions.includes(nominal)) {
-      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
-    } else if (!nominal && filteredNominalOptions.length > 0) {
-      setNominal(filteredNominalOptions[0]);
+      setNominal('');
     }
   }, [platform, nominal, filteredNominalOptions]);
 
@@ -82,7 +62,7 @@ const ManualStockAdjustmentPage = () => {
       const chunkCount = Math.min(CHUNK_SIZE, quantity - i);
       const vouchersToInsert: NewVoucher[] = Array.from({ length: chunkCount }).map((_, idx) => ({
         tanggal,
-        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`, // Plain code
+        code: `MANUAL_ADJ_${platform}_${nominal}_${currentTimestamp}_${i + idx}`,
         platform,
         source: "Manual Adjustment",
         nominal: nominal,
@@ -131,7 +111,7 @@ const ManualStockAdjustmentPage = () => {
               </div>
               <div>
                 <label htmlFor="platform-select" className="block text-sm font-medium mb-2 text-left">Platform</label>
-                <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading}>
+                <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading || loadingDenominations}>
                   <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih Platform" /></SelectTrigger>
                   <SelectContent>
                     {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -140,11 +120,11 @@ const ManualStockAdjustmentPage = () => {
               </div>
               <div>
                 <label htmlFor="nominal-select" className="block text-sm font-medium mb-2 text-left">Nominal</label>
-                <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading || !platform}>
+                <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading || loadingDenominations || !platform}>
                   <SelectTrigger id="nominal-select"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
                   <SelectContent>
                     {filteredNominalOptions.map(n => (
-                      <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>
+                      <SelectItem key={n} value={n}>{formatNominalDisplay(n, platform)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -170,8 +150,8 @@ const ManualStockAdjustmentPage = () => {
                 </p>
               </div>
             )}
-            <Button type="submit" disabled={loading || !platform || !nominal || quantity <= 0} className="w-full">
-              {loading ? `Sedang Memproses...` : `Tambahkan ${quantity > 0 ? `${quantity} ` : ''}Voucher`}
+            <Button type="submit" disabled={loading || loadingDenominations || !platform || !nominal || quantity <= 0} className="w-full">
+              {loading || loadingDenominations ? `Sedang Memproses...` : `Tambahkan ${quantity > 0 ? `${quantity} ` : ''}Voucher`}
             </Button>
           </form>
         </CardContent>

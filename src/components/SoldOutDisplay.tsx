@@ -11,24 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { subDays, formatISO } from "date-fns";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
 
 type DetailedSoldData = {
   platform: Platform;
@@ -36,25 +22,15 @@ type DetailedSoldData = {
   count: number;
 };
 
-const getNominalsForPlatform = (currentPlatform: Platform) => {
-  if (currentPlatform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (currentPlatform === "LG" || currentPlatform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (currentPlatform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return []; 
-};
-
 export const SoldOutDisplay = () => {
   const [soldData, setSoldData] = useState<DetailedSoldData[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
 
   const [filters, setFilters] = useState({
-    searchDate: '', // Default kosong, akan diisi dari serverTime
-    dateRange: 'daily', // Default to daily transactions
+    searchDate: '',
+    dateRange: 'daily',
   });
 
   const [serverTime, setServerTime] = useState<string | null>(null);
@@ -78,7 +54,6 @@ export const SoldOutDisplay = () => {
         setServerTime(null);
       } else {
         setServerTime(data.timestamp);
-        // Set default searchDate to server's current date if dateRange is 'daily'
         if (filters.dateRange === 'daily') {
           const serverDate = new Date(data.timestamp);
           setFilters(prev => ({ ...prev, searchDate: formatISO(serverDate, { representation: 'date' }) }));
@@ -91,9 +66,10 @@ export const SoldOutDisplay = () => {
     } finally {
       setLoadingServerTime(false);
     }
-  }, [toast, filters.dateRange]); // Tambahkan filters.dateRange sebagai dependency
+  }, [toast, filters.dateRange]);
 
   const fetchSoldData = useCallback(async () => {
+    if (loadingDenominations) return;
     setLoading(true);
     const allSoldPromises: Promise<DetailedSoldData>[] = [];
 
@@ -102,36 +78,17 @@ export const SoldOutDisplay = () => {
 
     if (filters.searchDate) {
       queryStartDate = new Date(filters.searchDate);
-      queryEndDate = new Date(filters.searchDate); // For a single specific day
+      queryEndDate = new Date(filters.searchDate);
     } else {
-      // If searchDate is empty, use dateRange logic based on serverTime if available
       if (serverTime) {
-        const today = new Date(serverTime); // Use server time for 'today'
+        const today = new Date(serverTime);
         switch (filters.dateRange) {
-          case 'daily':
-            queryStartDate = today;
-            queryEndDate = today;
-            break;
-          case 'weekly':
-            queryStartDate = subDays(today, 7);
-            queryEndDate = today;
-            break;
-          case '2-weeks':
-            queryStartDate = subDays(today, 14);
-            queryEndDate = today;
-            break;
-          case 'monthly':
-            queryStartDate = subDays(today, 30);
-            queryEndDate = today;
-            break;
-          case 'yearly':
-            queryStartDate = subDays(today, 365);
-            queryEndDate = today;
-            break;
-          case 'all':
-          default:
-            // No date filters
-            break;
+          case 'daily': queryStartDate = today; queryEndDate = today; break;
+          case 'weekly': queryStartDate = subDays(today, 7); queryEndDate = today; break;
+          case '2-weeks': queryStartDate = subDays(today, 14); queryEndDate = today; break;
+          case 'monthly': queryStartDate = subDays(today, 30); queryEndDate = today; break;
+          case 'yearly': queryStartDate = subDays(today, 365); queryEndDate = today; break;
+          default: break;
         }
       }
     }
@@ -139,31 +96,25 @@ export const SoldOutDisplay = () => {
     const formattedStartDate = queryStartDate ? formatISO(queryStartDate, { representation: 'date' }) : null;
     const formattedEndDate = queryEndDate ? formatISO(queryEndDate, { representation: 'date' }) : null;
 
-    for (const platform of platformOptions) {
-      const nominals = getNominalsForPlatform(platform);
-
-      for (const nominal of nominals) {
+    for (const platform of denominationPlatforms) {
+      for (const nominal of platform.denominations) {
         let query = supabase
           .from("vouchers")
           .select("*", { count: "exact", head: true })
-          .eq("platform", platform)
+          .eq("platform", platform.platform_name)
           .eq("nominal", nominal)
           .eq("status", "sold");
 
-        if (formattedStartDate) {
-          query = query.gte('tanggal', formattedStartDate);
-        }
-        if (formattedEndDate) {
-          query = query.lte('tanggal', formattedEndDate);
-        }
+        if (formattedStartDate) query = query.gte('tanggal', formattedStartDate);
+        if (formattedEndDate) query = query.lte('tanggal', formattedEndDate);
 
         const promise = query.then(({ count, error }) => {
           if (error) {
-            console.error(`Error fetching sold data for ${platform} ${nominal}:`, error.message);
-            toast({ title: "Error", description: `Gagal memuat data terjual untuk ${platform} ${formatNominalDisplay(nominal)}: ${error.message}`, variant: "destructive" });
-            return { platform, nominal, count: 0 };
+            console.error(`Error fetching sold data for ${platform.platform_name} ${nominal}:`, error.message);
+            toast({ title: "Error", description: `Gagal memuat data terjual untuk ${platform.platform_name} ${formatNominalDisplay(nominal, platform.platform_name)}: ${error.message}`, variant: "destructive" });
+            return { platform: platform.platform_name as Platform, nominal, count: 0 };
           }
-          return { platform, nominal, count: count || 0 };
+          return { platform: platform.platform_name as Platform, nominal, count: count || 0 };
         });
         allSoldPromises.push(promise);
       }
@@ -172,21 +123,21 @@ export const SoldOutDisplay = () => {
     const results = await Promise.all(allSoldPromises);
     setSoldData(results);
     setLoading(false);
-  }, [filters, serverTime, toast]); // Tambahkan serverTime sebagai dependency
+  }, [filters, serverTime, toast, denominationPlatforms, loadingDenominations]);
 
   useEffect(() => {
-    fetchServerTime(); // Fetch server time on initial load
-    const interval = setInterval(fetchServerTime, 60 * 1000); // Refresh server time every minute
+    fetchServerTime();
+    const interval = setInterval(fetchServerTime, 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchServerTime]);
 
   useEffect(() => {
-    // Panggil fetchSoldData hanya jika serverTime sudah tersedia atau filter sudah diatur
-    if (serverTime || filters.searchDate || filters.dateRange === 'all') {
+    if ((serverTime || filters.searchDate || filters.dateRange === 'all') && !loadingDenominations) {
       fetchSoldData();
     }
-  }, [fetchSoldData, serverTime, filters.searchDate, filters.dateRange]);
+  }, [fetchSoldData, serverTime, filters.searchDate, filters.dateRange, loadingDenominations]);
 
+  const isLoading = loading || loadingDenominations;
 
   return (
     <div className="w-full max-w-4xl">
@@ -221,15 +172,15 @@ export const SoldOutDisplay = () => {
         </CardContent>
       </Card>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {loading
-          ? platformOptions.map((p) => (
-              <Card key={`sold-skeleton-${p}`}>
+        {isLoading
+          ? denominationPlatforms.map((p) => (
+              <Card key={`sold-skeleton-${p.platform_name}`}>
                 <CardHeader>
                   <CardTitle><Skeleton className="h-6 w-24" /></CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {getNominalsForPlatform(p).map((n) => (
-                    <div key={`sold-skeleton-${p}-${n}`} className="flex justify-between items-center">
+                  {p.denominations.map((n) => (
+                    <div key={`sold-skeleton-${p.platform_name}-${n}`} className="flex justify-between items-center">
                       <span><Skeleton className="h-4 w-16" /></span>
                       <span><Skeleton className="h-4 w-8" /></span>
                     </div>
@@ -237,31 +188,26 @@ export const SoldOutDisplay = () => {
                 </CardContent>
               </Card>
             ))
-          : platformOptions.map((platform) => (
-              <Card key={`sold-${platform}`}>
+          : denominationPlatforms.map((platform) => (
+              <Card key={`sold-${platform.platform_name}`}>
                 <CardHeader>
-                  <CardTitle>{platform}</CardTitle>
+                  <CardTitle>{platform.platform_name}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {soldData
-                    .filter(item => item.platform === platform)
+                    .filter(item => item.platform === platform.platform_name)
                     .sort((a, b) => {
-                      const nominalA = a.nominal;
-                      const nominalB = b.nominal;
-                      const numA = parseInt(nominalA, 10);
-                      const numB = parseInt(nominalB, 10);
-
-                      if (!isNaN(numA) && !isNaN(numB)) {
-                        return numA - numB;
-                      }
+                      const numA = parseInt(a.nominal, 10);
+                      const numB = parseInt(b.nominal, 10);
+                      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
                       if (!isNaN(numA)) return -1;
                       if (!isNaN(numB)) return 1;
-                      return nominalA.localeCompare(nominalB);
+                      return a.nominal.localeCompare(b.nominal);
                     })
                     .map(({ nominal, count }) => (
-                      <div key={`sold-${platform}-${nominal}`} className="flex justify-between items-center">
+                      <div key={`sold-${platform.platform_name}-${nominal}`} className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">
-                          {formatNominalDisplay(nominal)}
+                          {formatNominalDisplay(nominal, platform.platform_name)}
                         </span>
                         <span className="text-lg font-semibold">{count}</span>
                       </div>

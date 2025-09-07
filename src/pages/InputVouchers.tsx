@@ -12,64 +12,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Label } from "@/components/ui/label"; // Import Label
+import { Label } from "@/components/ui/label";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type NewVoucher = Database['public']['Tables']['vouchers']['Insert'];
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-// Source sekarang adalah string | null
-// type Source = NonNullable<Database['public']['Tables']['vouchers']['Row']['source']>; // Dihapus
-
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-// sourceOptions dihapus karena sekarang input teks bebas
-// const sourceOptions: Source[] = ["Paygift website", "Paygift Sales", "Tokopedia", "Manual Adjustment", "Random"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
-
-const getFilteredNominalOptions = (platform: Platform | '') => {
-  if (platform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"]; // Added "500"
-  } else if (platform === "LG" || platform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (platform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return [];
-};
 
 const CHUNK_SIZE = 100;
 
 const InputVouchersPage = () => {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
   const [codes, setCodes] = useState("");
-  const [platform, setPlatform] = useState<Platform>("LG");
-  const [source, setSource] = useState<string>(''); // Source sekarang string
-  const [nominal, setNominal] = useState("50000");
-  const [invoice, setInvoice] = useState<string>(''); // State untuk invoice
+  const [platform, setPlatform] = useState<Platform | ''>('');
+  const [source, setSource] = useState<string>('');
+  const [nominal, setNominal] = useState('');
+  const [invoice, setInvoice] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { platforms: denominationPlatforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
 
-  const filteredNominalOptions = useMemo(() => getFilteredNominalOptions(platform), [platform]);
+  const platformOptions = useMemo(() => denominationPlatforms.map(p => p.platform_name), [denominationPlatforms]);
+  const filteredNominalOptions = useMemo(() => getDenominationsForPlatform(platform as string), [platform, getDenominationsForPlatform]);
+
+  useEffect(() => {
+    if (platform && !platformOptions.includes(platform)) {
+      setPlatform('');
+    }
+  }, [platform, platformOptions]);
 
   useEffect(() => {
     if (nominal && !filteredNominalOptions.includes(nominal)) {
-      setNominal(filteredNominalOptions.length > 0 ? filteredNominalOptions[0] : '');
-    } else if (!nominal && filteredNominalOptions.length > 0) {
-      setNominal(filteredNominalOptions[0]);
+      setNominal('');
     }
   }, [platform, nominal, filteredNominalOptions]);
 
@@ -102,9 +78,9 @@ const InputVouchersPage = () => {
         tanggal,
         code: code.trim(),
         platform,
-        source: source.trim() === '' ? null : source.trim(), // Simpan sebagai null jika kosong
+        source: source.trim() === '' ? null : source.trim(),
         nominal: nominal,
-        invoice: invoice.trim() === '' ? null : invoice.trim(), // Simpan invoice
+        invoice: invoice.trim() === '' ? null : invoice.trim(),
       }));
 
       const { error: insertError } = await supabase
@@ -123,8 +99,8 @@ const InputVouchersPage = () => {
 
     toast({ title: "Sukses", description: `${successfulInserts} dari ${voucherCount} voucher berhasil disimpan.` });
     setCodes("");
-    setInvoice(""); // Reset invoice
-    setSource(""); // Reset source
+    setInvoice("");
+    setSource("");
     setLoading(false);
   };
 
@@ -151,18 +127,18 @@ const InputVouchersPage = () => {
               </div>
               <div>
                 <Label htmlFor="nominal-select" className="block text-sm font-medium mb-2 text-left">Nominal</Label>
-                <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading || !platform}>
+                <Select value={nominal} onValueChange={(value) => setNominal(value)} disabled={loading || loadingDenominations || !platform}>
                   <SelectTrigger id="nominal-select"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
                   <SelectContent>
                     {filteredNominalOptions.map(n => (
-                      <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>
+                      <SelectItem key={n} value={n}>{formatNominalDisplay(n, platform)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="platform-select" className="block text-sm font-medium mb-2 text-left">Provider (Platform)</Label>
-                <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading}>
+                <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)} disabled={loading || loadingDenominations}>
                   <SelectTrigger id="platform-select"><SelectValue placeholder="Pilih Provider" /></SelectTrigger>
                   <SelectContent>
                     {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -193,8 +169,8 @@ const InputVouchersPage = () => {
                 </p>
               </div>
             )}
-            <Button type="submit" disabled={loading || voucherCount === 0 || !platform || !nominal} className="w-full">
-              {loading ? `Sedang Memproses...` : `Simpan ${voucherCount > 0 ? `${voucherCount} ` : ''}Voucher`}
+            <Button type="submit" disabled={loading || loadingDenominations || voucherCount === 0 || !platform || !nominal} className="w-full">
+              {loading || loadingDenominations ? `Sedang Memproses...` : `Simpan ${voucherCount > 0 ? `${voucherCount} ` : ''}Voucher`}
             </Button>
           </form>
         </CardContent>

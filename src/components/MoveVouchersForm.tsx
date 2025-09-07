@@ -9,35 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { ArrowDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { useDenominations } from "@/contexts/DenominationContext";
+import { formatNominalDisplay } from "@/lib/utils";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-const platformOptions: Platform[] = ["LG", "wahyu", "Itemku", "Itemku Steam Game Key"];
-
-const formatNominalDisplay = (nominal: string | number) => {
-  const strNominal = String(nominal);
-  if (["100", "200", "400", "500"].includes(strNominal)) {
-    return `${strNominal} RBX`;
-  }
-  if (strNominal.includes("Random Steam Key")) {
-    return strNominal;
-  }
-  const numNominal = parseInt(strNominal, 10);
-  if (!isNaN(numNominal)) {
-    return `${numNominal.toLocaleString('id-ID')} IDR`;
-  }
-  return strNominal;
-};
-
-const getFilteredNominalOptions = (platform: Platform | '') => {
-  if (platform === "Itemku") {
-    return ["100", "200", "400", "500", "50000", "65000", "100000", "200000", "300000", "500000"];
-  } else if (platform === "LG" || platform === "wahyu") {
-    return ["50000", "65000", "200000"];
-  } else if (platform === "Itemku Steam Game Key") {
-    return ["Random Steam Key", "Random Epical Steam Key", "Random Legendary Steam Key", "Random Mythical Steam Key", "Random Premium Steam Key"];
-  }
-  return [];
-};
 
 export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () => void; onActionComplete: () => void; }) => {
   const [loading, setLoading] = useState(false);
@@ -49,9 +24,11 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
   const [availableStock, setAvailableStock] = useState<number | null>(null);
   
   const { toast } = useToast();
+  const { platforms: denominationPlatforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
 
-  const sourceNominalOptions = useMemo(() => getFilteredNominalOptions(sourcePlatform), [sourcePlatform]);
-  const targetNominalOptions = useMemo(() => getFilteredNominalOptions(targetPlatform), [targetPlatform]);
+  const platformOptions = useMemo(() => denominationPlatforms.map(p => p.platform_name), [denominationPlatforms]);
+  const sourceNominalOptions = useMemo(() => getDenominationsForPlatform(sourcePlatform as string), [sourcePlatform, getDenominationsForPlatform]);
+  const targetNominalOptions = useMemo(() => getDenominationsForPlatform(targetPlatform as string), [targetPlatform, getDenominationsForPlatform]);
 
   const fetchAvailableStock = useCallback(async () => {
     if (sourcePlatform && sourceNominal) {
@@ -123,14 +100,14 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
     if (updateError) {
       toast({ title: "Error", description: `Gagal memindahkan voucher: ${updateError.message}`, variant: "destructive" });
     } else {
-      toast({ title: "Sukses", description: `${quantity} voucher berhasil dipindahkan ke ${targetPlatform} - ${formatNominalDisplay(targetNominal)}.` });
+      toast({ title: "Sukses", description: `${quantity} voucher berhasil dipindahkan ke ${targetPlatform} - ${formatNominalDisplay(targetNominal, targetPlatform)}.` });
       onActionComplete();
       onClose();
     }
     setLoading(false);
   };
 
-  const isMoveDisabled = loading || !sourcePlatform || !targetPlatform || !sourceNominal || !targetNominal || quantity <= 0 || (availableStock !== null && quantity > availableStock);
+  const isMoveDisabled = loading || loadingDenominations || !sourcePlatform || !targetPlatform || !sourceNominal || !targetNominal || quantity <= 0 || (availableStock !== null && quantity > availableStock);
 
   return (
     <div className="space-y-4">
@@ -139,7 +116,7 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="source-platform">Platform</Label>
-            <Select value={sourcePlatform} onValueChange={(v: Platform) => setSourcePlatform(v)} required>
+            <Select value={sourcePlatform} onValueChange={(v: Platform) => setSourcePlatform(v)} required disabled={loadingDenominations}>
               <SelectTrigger id="source-platform"><SelectValue placeholder="Pilih Platform" /></SelectTrigger>
               <SelectContent>
                 {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -148,10 +125,10 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
           </div>
           <div>
             <Label htmlFor="source-nominal">Nominal</Label>
-            <Select value={sourceNominal} onValueChange={setSourceNominal} required disabled={!sourcePlatform}>
+            <Select value={sourceNominal} onValueChange={setSourceNominal} required disabled={!sourcePlatform || loadingDenominations}>
               <SelectTrigger id="source-nominal"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
               <SelectContent>
-                {sourceNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>)}
+                {sourceNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n, sourcePlatform)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -170,7 +147,7 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="target-platform">Platform</Label>
-            <Select value={targetPlatform} onValueChange={(v: Platform) => setTargetPlatform(v)} required>
+            <Select value={targetPlatform} onValueChange={(v: Platform) => setTargetPlatform(v)} required disabled={loadingDenominations}>
               <SelectTrigger id="target-platform"><SelectValue placeholder="Pilih Platform" /></SelectTrigger>
               <SelectContent>
                 {platformOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -179,10 +156,10 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
           </div>
           <div>
             <Label htmlFor="target-nominal">Nominal</Label>
-            <Select value={targetNominal} onValueChange={setTargetNominal} required disabled={!targetPlatform}>
+            <Select value={targetNominal} onValueChange={setTargetNominal} required disabled={!targetPlatform || loadingDenominations}>
               <SelectTrigger id="target-nominal"><SelectValue placeholder="Pilih Nominal" /></SelectTrigger>
               <SelectContent>
-                {targetNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n)}</SelectItem>)}
+                {targetNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n, targetPlatform)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -203,7 +180,7 @@ export const MoveVouchersForm = ({ onClose, onActionComplete }: { onClose: () =>
       </div>
 
       <Button onClick={handleMoveVouchers} disabled={isMoveDisabled} className="w-full">
-        {loading ? "Memproses..." : `Pindahkan ${quantity} Voucher`}
+        {loading || loadingDenominations ? "Memproses..." : `Pindahkan ${quantity} Voucher`}
       </Button>
     </div>
   );

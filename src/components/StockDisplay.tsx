@@ -33,6 +33,54 @@ export const StockDisplay = () => {
     [denominationPlatforms]
   );
 
+  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform) => {
+    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: true }));
+
+    setStock(prevStock => 
+      prevStock.map(s => 
+        s.platform === targetPlatform && s.external !== 'N/A' ? { ...s, external: 'loading' } : s
+      )
+    );
+
+    const platformInfo = denominationPlatforms.find(p => p.platform_name === targetPlatform);
+    if (!platformInfo || !(platformInfo.platform_name === "LG" || platformInfo.platform_name === "Itemku" || platformInfo.platform_name === "Itemku Steam Game Key" || platformInfo.platform_name.toLowerCase().includes('valorant'))) {
+        setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
+        return;
+    }
+
+    const externalStockPromises = platformInfo.denominations.map(async (nominal) => {
+        try {
+          const { data, error } = await supabase.functions.invoke('check-external-stock', {
+            body: { platform: targetPlatform, nominal: nominal },
+          });
+
+          if (error) {
+            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${targetPlatform} ${formatNominalDisplay(nominal, targetPlatform)}: ${error.message}`, variant: "destructive" });
+            return { platform: targetPlatform, nominal, external: 'N/A' as const };
+          }
+          return { platform: targetPlatform, nominal, external: data.stock };
+        } catch (err: any) {
+          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${targetPlatform} ${formatNominalDisplay(nominal, targetPlatform)}: ${err.message}`, variant: "destructive" });
+          return { platform: targetPlatform, nominal, external: 'N/A' as const };
+        }
+    });
+
+    const results = await Promise.all(externalStockPromises);
+
+    setStock(prevStock => {
+        const newStock = [...prevStock];
+        results.forEach(updatedItem => {
+          const index = newStock.findIndex(s => s.platform === updatedItem.platform && s.nominal === updatedItem.nominal);
+          if (index !== -1) {
+            newStock[index].external = updatedItem.external;
+          }
+        });
+        return newStock;
+    });
+
+    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
+  }, [denominationPlatforms, toast]);
+
   const fetchInternalStock = useCallback(async () => {
     if (loadingDenominations || visiblePlatforms.length === 0) {
       if (!loadingDenominations) setLoadingInternal(false);
@@ -63,53 +111,20 @@ export const StockDisplay = () => {
     const results = await Promise.all(stockPromises);
     setStock(results);
     setLoadingInternal(false);
-  }, [loadingDenominations, visiblePlatforms]);
+
+    const platformsToRefresh = visiblePlatforms
+      .map(p => p.platform_name as Platform)
+      .filter(p => p === "LG" || p === "Itemku" || p === "Itemku Steam Game Key" || p.toLowerCase().includes('valorant'));
+    
+    platformsToRefresh.forEach(platform => {
+        fetchExternalStockForPlatform(platform);
+    });
+
+  }, [loadingDenominations, visiblePlatforms, fetchExternalStockForPlatform]);
 
   useEffect(() => {
     fetchInternalStock();
   }, [fetchInternalStock]);
-
-  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform) => {
-    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: true }));
-
-    setStock(prevStock => 
-      prevStock.map(s => 
-        s.platform === targetPlatform ? { ...s, external: 'loading' } : s
-      )
-    );
-
-    const platformItems = stock.filter(item => item.platform === targetPlatform);
-    const externalStockPromises = platformItems.map(async (item) => {
-        try {
-          const { data, error } = await supabase.functions.invoke('check-external-stock', {
-            body: { platform: item.platform, nominal: item.nominal },
-          });
-
-          if (error) {
-            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal, item.platform)}: ${error.message}`, variant: "destructive" });
-            return { ...item, external: 'N/A' as const };
-          }
-          return { ...item, external: data.stock };
-        } catch (err: any) {
-          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${item.platform} ${formatNominalDisplay(item.nominal, item.platform)}: ${err.message}`, variant: "destructive" });
-          return { ...item, external: 'N/A' as const };
-        }
-    });
-
-    const results = await Promise.all(externalStockPromises);
-    setStock(prevStock => {
-        const newStock = [...prevStock];
-        results.forEach(updatedItem => {
-          const index = newStock.findIndex(s => s.platform === updatedItem.platform && s.nominal === updatedItem.nominal);
-          if (index !== -1) {
-            newStock[index] = updatedItem;
-          }
-        });
-        return newStock;
-    });
-
-    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
-  }, [stock, toast]);
 
   const isLoading = loadingInternal || loadingDenominations;
 
