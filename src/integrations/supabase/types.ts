@@ -74,21 +74,24 @@ export type Database = {
           store_name?: string | null;
         };
       };
-      platform_denominations: { // Menambahkan tipe untuk tabel baru
+      platform_denominations: {
         Row: {
           platform_name: string;
           denominations: string[];
           created_at: string;
+          is_external_stock_enabled: boolean | null;
         };
         Insert: {
           platform_name: string;
           denominations?: string[];
           created_at?: string;
+          is_external_stock_enabled?: boolean | null;
         };
         Update: {
           platform_name?: string;
           denominations?: string[];
           created_at?: string;
+          is_external_stock_enabled?: boolean | null;
         };
       };
       profiles: {

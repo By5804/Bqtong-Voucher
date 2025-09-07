@@ -11,6 +11,7 @@ import { Trash2, Edit, PlusCircle, ArrowLeft, Save } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { Database } from "@/integrations/supabase/types";
 
@@ -136,6 +137,22 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
     refreshDenominations();
   };
 
+  const handleToggleExternalStock = async (platformName: string, currentState: boolean) => {
+    setLoading(true);
+    const { error } = await supabase
+      .from('platform_denominations')
+      .update({ is_external_stock_enabled: !currentState })
+      .eq('platform_name', platformName);
+
+    if (error) {
+      toast({ title: "Error", description: `Gagal mengubah status: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ title: "Sukses", description: `Pengecekan stok eksternal ${!currentState ? 'diaktifkan' : 'dinonaktifkan'}.` });
+      refreshDenominations();
+    }
+    setLoading(false);
+  };
+
   if (view === 'denominations' && selectedPlatform) {
     return (
       <div className="space-y-4">
@@ -209,15 +226,22 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
       </div>
       <div className="border rounded-md">
         <Table>
-          <TableHeader><TableRow><TableHead>Nama Platform</TableHead><TableHead>Jumlah Nominal</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Nama Platform</TableHead><TableHead>Jumlah Nominal</TableHead><TableHead>Cek Stok Eksternal</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
           <TableBody>
             {loadingDenominations ? (
-              <TableRow><TableCell colSpan={3} className="text-center">Memuat...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center">Memuat...</TableCell></TableRow>
             ) : (
               platforms.map(p => (
                 <TableRow key={p.platform_name}>
                   <TableCell className="font-medium">{p.platform_name}</TableCell>
                   <TableCell><Badge variant="secondary">{p.denominations.length}</Badge></TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={!!p.is_external_stock_enabled}
+                      onCheckedChange={() => handleToggleExternalStock(p.platform_name, !!p.is_external_stock_enabled)}
+                      disabled={loading}
+                    />
+                  </TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="sm" onClick={() => handleSwitchToDenomView(p)}>Kelola Nominal</Button>
                     <Button variant="outline" size="icon" onClick={() => handleOpenPlatformModal(p)}><Edit className="h-4 w-4" /></Button>

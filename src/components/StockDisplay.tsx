@@ -43,7 +43,7 @@ export const StockDisplay = () => {
     );
 
     const platformInfo = denominationPlatforms.find(p => p.platform_name === targetPlatform);
-    if (!platformInfo || !(platformInfo.platform_name === "LG" || platformInfo.platform_name === "Itemku" || platformInfo.platform_name === "Itemku Steam Game Key" || platformInfo.platform_name.toLowerCase().includes('valorant'))) {
+    if (!platformInfo || !platformInfo.is_external_stock_enabled) {
         setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
         return;
     }
@@ -102,7 +102,7 @@ export const StockDisplay = () => {
             platform: platform.platform_name as Platform,
             nominal,
             internal: count || 0,
-            external: (platform.platform_name === "Itemku" || platform.platform_name === "LG" || platform.platform_name === "Itemku Steam Game Key" || platform.platform_name.toLowerCase().includes('valorant')) ? null : 'N/A' as const
+            external: platform.is_external_stock_enabled ? null : 'N/A' as const
           }));
         stockPromises.push(promise);
       }
@@ -113,8 +113,8 @@ export const StockDisplay = () => {
     setLoadingInternal(false);
 
     const platformsToRefresh = visiblePlatforms
-      .map(p => p.platform_name as Platform)
-      .filter(p => p === "LG" || p === "Itemku" || p === "Itemku Steam Game Key" || p.toLowerCase().includes('valorant'));
+      .filter(p => p.is_external_stock_enabled)
+      .map(p => p.platform_name as Platform);
     
     platformsToRefresh.forEach(platform => {
         fetchExternalStockForPlatform(platform);
@@ -152,7 +152,7 @@ export const StockDisplay = () => {
                 <Card key={platform.platform_name}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-lg font-medium">{platform.platform_name}</CardTitle>
-                    {(platform.platform_name === "LG" || platform.platform_name === "Itemku" || platform.platform_name === "Itemku Steam Game Key" || platform.platform_name.toLowerCase().includes('valorant')) && (
+                    {platform.is_external_stock_enabled && (
                       <Button 
                         onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
                         disabled={loadingExternalStates[platform.platform_name]}
