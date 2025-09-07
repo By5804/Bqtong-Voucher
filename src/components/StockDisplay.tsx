@@ -15,15 +15,15 @@ type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
 const formatNominalDisplay = (nominal: string | number) => {
   const strNominal = String(nominal);
-  if (strNominal === "100") return "100 RBX";
-  if (strNominal === "200") return "200 RBX";
-  if (strNominal === "400") return "400 RBX";
-  if (strNominal === "500") return "500 RBX";
-  if (strNominal.includes("Random Steam Key")) return strNominal;
-
+  if (["100", "200", "400", "500"].includes(strNominal)) {
+    return `${strNominal} RBX`;
+  }
+  if (strNominal.includes("Random Steam Key")) {
+    return strNominal;
+  }
   const numNominal = parseInt(strNominal, 10);
   if (!isNaN(numNominal)) {
-    return numNominal.toLocaleString('id-ID') + 'K';
+    return `${numNominal.toLocaleString('id-ID')} IDR`;
   }
   return strNominal;
 };
