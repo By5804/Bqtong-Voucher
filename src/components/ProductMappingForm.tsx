@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Trash2, Edit } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useDenominations } from "@/contexts/DenominationContext";
-import { formatNominalDisplay } from "@/lib/utils";
+import { formatNominalDisplay, parseNominalInput } from "@/lib/utils";
 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
 
@@ -51,12 +51,12 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       const platformCompare = a.platform.localeCompare(b.platform);
       if (platformCompare !== 0) return platformCompare;
 
-      const numA = parseInt(a.nominal, 10);
-      const numB = parseInt(b.nominal, 10);
+      const numA = parseInt(parseNominalInput(a.nominal), 10);
+      const numB = parseInt(parseNominalInput(b.nominal), 10);
       if (!isNaN(numA) && !isNaN(numB)) {
         return numA - numB;
       }
-      return a.nominal.localeCompare(b.nominal);
+      return parseNominalInput(a.nominal).localeCompare(parseNominalInput(b.nominal));
     });
     setMappings(sorted);
   };
@@ -66,7 +66,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setLoading(true);
 
     const allDenominations = platforms.flatMap(p =>
-      p.denominations.map(d => ({ platform: p.platform_name, nominal: d }))
+      p.denominations.map(d => ({ platform: p.platform_name, nominal: parseNominalInput(d) })) // Parse nominal here
     );
 
     const { data: existingMappings, error: fetchError } = await supabase
@@ -79,13 +79,14 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       return;
     }
 
-    const existingMappingKeys = new Set(existingMappings.map(m => `${m.platform}-${m.nominal}`));
+    // Use parsed nominal for comparison keys
+    const existingMappingKeys = new Set(existingMappings.map(m => `${m.platform}-${parseNominalInput(m.nominal)}`));
     const mappingsToCreate = allDenominations.filter(d => !existingMappingKeys.has(`${d.platform}-${d.nominal}`));
 
     if (mappingsToCreate.length > 0) {
       const newMappingsPayload = mappingsToCreate.map(m => ({
         platform: m.platform,
-        nominal: m.nominal,
+        nominal: m.nominal, // This 'm.nominal' is already parsed
         game_id: 0,
         item_type_id: 0,
         item_info_group_id: 0,
@@ -147,10 +148,11 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     const parsedItemTypeId = parseInt(itemTypeId, 10);
     const parsedItemInfoGroupId = parseInt(itemInfoGroupId, 10);
     const parsedItemInfoId = parseInt(itemInfoId, 10);
+    const parsedNominalValue = parseNominalInput(nominal); // Parse nominal before submission
 
     if (
       !platform ||
-      !nominal.trim() ||
+      !parsedNominalValue.trim() ||
       isNaN(parsedGameId) ||
       isNaN(parsedItemTypeId) ||
       isNaN(parsedItemInfoGroupId) ||
@@ -165,7 +167,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     const payload = {
       platform,
-      nominal: nominal,
+      nominal: parsedNominalValue, // Use parsed nominal
       game_id: parsedGameId,
       item_type_id: parsedItemTypeId,
       item_info_group_id: parsedItemInfoGroupId,
@@ -201,7 +203,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const handleEdit = (mapping: ProductMapping) => {
     setEditingMapping(mapping);
     setPlatform(mapping.platform);
-    setNominal(mapping.nominal);
+    setNominal(parseNominalInput(mapping.nominal)); // Display parsed nominal in the form for editing
     setGameId(String(mapping.game_id));
     setItemTypeId(String(mapping.item_type_id));
     setItemInfoGroupId(String(mapping.item_info_group_id));
