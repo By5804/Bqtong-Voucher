@@ -74,7 +74,7 @@ export const MarkPlatformSoldForm = ({ onClose, onActionComplete }: { onClose: (
     } else {
       toast({ 
         title: "Sukses", 
-        description: `${data.message} Sisa stok internal: 0.`
+        description: data.message
       });
       onActionComplete();
       onClose();

@@ -30,8 +30,7 @@ serve(async (req) => {
       .from('vouchers')
       .update({ status: 'sold', sold_at: new Date().toISOString() })
       .eq('platform', platform)
-      .eq('status', 'available')
-      .select('*', { count: 'exact' });
+      .eq('status', 'available');
 
     if (error) {
       console.error('Error marking platform as sold:', error);
