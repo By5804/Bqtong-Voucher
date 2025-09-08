@@ -25,7 +25,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [itemInfoGroupId, setItemInfoGroupId] = useState<string>('');
   const [itemInfoId, setItemInfoId] = useState<string>('');
   const [productId, setProductId] = useState<string>('');
-  const [storeName, setStoreName] = useState<string>('');
+  const [storeName, setStoreName] = useState<string>('Budianto');
   const [loading, setLoading] = useState(false);
   const [mappings, setMappings] = useState<ProductMapping[]>([]);
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
@@ -91,7 +91,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
         nominal: m.nominal,
         game_id: 0,
         item_type_id: 0,
-        item_info_group_id: 0,
+        item_info_group_id: null,
         item_info_id: 0,
         product_id: '',
         store_name: null,
@@ -139,7 +139,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setItemInfoGroupId('');
     setItemInfoId('');
     setProductId('');
-    setStoreName('');
+    setStoreName('Budianto');
     setEditingMapping(null);
     setJsonInput('');
   };
@@ -245,7 +245,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       !parsedNominalValue.trim() ||
       isNaN(parsedGameId) ||
       isNaN(parsedItemTypeId) ||
-      isNaN(parsedItemInfoGroupId) ||
+      (itemInfoGroupId.trim() !== '' && isNaN(parsedItemInfoGroupId)) ||
       isNaN(parsedItemInfoId) ||
       !productId.trim()
     ) {
@@ -260,7 +260,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       nominal: parsedNominalValue,
       game_id: parsedGameId,
       item_type_id: parsedItemTypeId,
-      item_info_group_id: parsedItemInfoGroupId,
+      item_info_group_id: itemInfoGroupId.trim() === '' ? null : parsedItemInfoGroupId,
       item_info_id: parsedItemInfoId,
       product_id: productId.trim(),
       store_name: storeName.trim() === '' ? null : storeName.trim(),
@@ -296,10 +296,10 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setNominal(parseNominalInput(mapping.nominal));
     setGameId(String(mapping.game_id));
     setItemTypeId(String(mapping.item_type_id));
-    setItemInfoGroupId(String(mapping.item_info_group_id));
+    setItemInfoGroupId(mapping.item_info_group_id !== null ? String(mapping.item_info_group_id) : '');
     setItemInfoId(String(mapping.item_info_id));
     setProductId(mapping.product_id);
-    setStoreName(mapping.store_name || '');
+    setStoreName(mapping.store_name || 'Budianto');
     setJsonInput('');
   };
 
@@ -379,8 +379,8 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
           <Input id="item-type-id-input" type="number" value={itemTypeId} onChange={e => setItemTypeId(e.target.value)} required disabled={loading} />
         </div>
         <div>
-          <Label htmlFor="item-info-group-id-input">Item Info Group ID</Label>
-          <Input id="item-info-group-id-input" type="number" value={itemInfoGroupId} onChange={e => setItemInfoGroupId(e.target.value)} required disabled={loading} />
+          <Label htmlFor="item-info-group-id-input">Item Info Group ID <span className="text-muted-foreground">(Opsional)</span></Label>
+          <Input id="item-info-group-id-input" type="number" value={itemInfoGroupId} onChange={e => setItemInfoGroupId(e.target.value)} disabled={loading} />
         </div>
         <div>
           <Label htmlFor="item-info-id-input">Item Info ID</Label>

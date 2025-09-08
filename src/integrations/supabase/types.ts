@@ -46,7 +46,7 @@ export type Database = {
           nominal: string;
           game_id: number;
           item_type_id: number;
-          item_info_group_id: number;
+          item_info_group_id: number | null;
           item_info_id: number;
           product_id: string;
           created_at: string;
@@ -58,7 +58,7 @@ export type Database = {
           nominal: string;
           game_id: number;
           item_type_id: number;
-          item_info_group_id: number;
+          item_info_group_id: number | null;
           item_info_id: number;
           product_id: string;
           created_at?: string;
@@ -70,7 +70,7 @@ export type Database = {
           nominal?: string;
           game_id?: number;
           item_type_id?: number;
-          item_info_group_id?: number;
+          item_info_group_id?: number | null;
           item_info_id?: number;
           product_id?: string;
           created_at?: string;
