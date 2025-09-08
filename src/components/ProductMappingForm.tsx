@@ -156,6 +156,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
         setItemTypeId(String(productData.item_type_id || ''));
         setItemInfoGroupId(String(productData.item_info_group_id || ''));
         setItemInfoId(String(productData.item_info_id || ''));
+        setProductId(String(productData.id || ''));
         toast({ title: "Info", description: "Data dari JSON berhasil di-load ke form." });
       }
     } catch (error) {
