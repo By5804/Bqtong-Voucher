@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,10 +9,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Edit } from "lucide-react";
+import { Trash2, Edit, Download, Upload } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { formatNominalDisplay, parseNominalInput } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 type ProductMapping = Database['public']['Tables']['product_mappings']['Row'];
 
@@ -30,6 +31,8 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const [editingMapping, setEditingMapping] = useState<ProductMapping | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mappingToDelete, setMappingToDelete] = useState<string | null>(null);
+  const [jsonInput, setJsonInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
   const { platforms, getDenominationsForPlatform, loading: loadingDenominations } = useDenominations();
@@ -66,7 +69,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setLoading(true);
 
     const allDenominations = platforms.flatMap(p =>
-      p.denominations.map(d => ({ platform: p.platform_name, nominal: parseNominalInput(d) })) // Parse nominal here
+      p.denominations.map(d => ({ platform: p.platform_name, nominal: parseNominalInput(d) }))
     );
 
     const { data: existingMappings, error: fetchError } = await supabase
@@ -79,14 +82,13 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
       return;
     }
 
-    // Use parsed nominal for comparison keys
     const existingMappingKeys = new Set(existingMappings.map(m => `${m.platform}-${parseNominalInput(m.nominal)}`));
     const mappingsToCreate = allDenominations.filter(d => !existingMappingKeys.has(`${d.platform}-${d.nominal}`));
 
     if (mappingsToCreate.length > 0) {
       const newMappingsPayload = mappingsToCreate.map(m => ({
         platform: m.platform,
-        nominal: m.nominal, // This 'm.nominal' is already parsed
+        nominal: m.nominal,
         game_id: 0,
         item_type_id: 0,
         item_info_group_id: 0,
@@ -139,6 +141,94 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     setProductId('');
     setStoreName('');
     setEditingMapping(null);
+    setJsonInput('');
+  };
+
+  const handleJsonInputChange = (jsonString: string) => {
+    setJsonInput(jsonString);
+    try {
+      if (!jsonString.trim()) return;
+      const parsed = JSON.parse(jsonString);
+      const productData = parsed?.data?.data?.[0];
+
+      if (productData) {
+        setGameId(String(productData.game_id || ''));
+        setItemTypeId(String(productData.item_type_id || ''));
+        setItemInfoGroupId(String(productData.item_info_group_id || ''));
+        setItemInfoId(String(productData.item_info_id || ''));
+        toast({ title: "Info", description: "Data dari JSON berhasil di-load ke form." });
+      }
+    } catch (error) {
+      // Ignore parsing errors silently, as user might be in the middle of typing/pasting
+    }
+  };
+
+  const handleExport = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('product_mappings').select('*');
+    setLoading(false);
+
+    if (error) {
+      toast({ title: "Error", description: `Gagal mengekspor data: ${error.message}`, variant: "destructive" });
+      return;
+    }
+
+    if (data) {
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `product_mappings_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Sukses", description: "Data mapping berhasil diekspor." });
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') throw new Error("File content is not valid text.");
+        
+        const importedData = JSON.parse(text);
+        if (!Array.isArray(importedData)) throw new Error("JSON file should contain an array of mappings.");
+
+        if (importedData.length > 0) {
+            const firstItem = importedData[0];
+            if (!('platform' in firstItem && 'nominal' in firstItem && 'product_id' in firstItem)) {
+                throw new Error("Data in file does not have the required fields (platform, nominal, product_id).");
+            }
+        }
+
+        setLoading(true);
+        const { error } = await supabase.from('product_mappings').upsert(importedData, { onConflict: 'id' });
+        setLoading(false);
+
+        if (error) throw error;
+
+        toast({ title: "Sukses", description: `${importedData.length} mapping berhasil diimpor.` });
+        syncAndFetchMappings();
+
+      } catch (error: any) {
+        setLoading(false);
+        toast({ title: "Error Impor", description: `Gagal mengimpor file: ${error.message}`, variant: "destructive" });
+      } finally {
+        if (event.target) event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,7 +238,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
     const parsedItemTypeId = parseInt(itemTypeId, 10);
     const parsedItemInfoGroupId = parseInt(itemInfoGroupId, 10);
     const parsedItemInfoId = parseInt(itemInfoId, 10);
-    const parsedNominalValue = parseNominalInput(nominal); // Parse nominal before submission
+    const parsedNominalValue = parseNominalInput(nominal);
 
     if (
       !platform ||
@@ -167,7 +257,7 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
     const payload = {
       platform,
-      nominal: parsedNominalValue, // Use parsed nominal
+      nominal: parsedNominalValue,
       game_id: parsedGameId,
       item_type_id: parsedItemTypeId,
       item_info_group_id: parsedItemInfoGroupId,
@@ -203,13 +293,14 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
   const handleEdit = (mapping: ProductMapping) => {
     setEditingMapping(mapping);
     setPlatform(mapping.platform);
-    setNominal(parseNominalInput(mapping.nominal)); // Display parsed nominal in the form for editing
+    setNominal(parseNominalInput(mapping.nominal));
     setGameId(String(mapping.game_id));
     setItemTypeId(String(mapping.item_type_id));
     setItemInfoGroupId(String(mapping.item_info_group_id));
     setItemInfoId(String(mapping.item_info_id));
     setProductId(mapping.product_id);
     setStoreName(mapping.store_name || '');
+    setJsonInput('');
   };
 
   const confirmDelete = (id: string) => {
@@ -239,6 +330,16 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-2 justify-end">
+        <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".json" style={{ display: 'none' }} />
+        <Button variant="outline" onClick={handleImportClick} disabled={loading}>
+          <Upload className="h-4 w-4 mr-2" /> Impor
+        </Button>
+        <Button variant="outline" onClick={handleExport} disabled={loading}>
+          <Download className="h-4 w-4 mr-2" /> Ekspor
+        </Button>
+      </div>
+
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <Label htmlFor="platform-select">Platform</Label>
@@ -257,6 +358,17 @@ export const ProductMappingForm = ({ onClose }: { onClose: () => void }) => {
               {filteredNominalOptions.map(n => <SelectItem key={n} value={n}>{formatNominalDisplay(n, platform)}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+        <div className="md:col-span-2">
+          <Label htmlFor="json-input">Impor dari JSON Itemku</Label>
+          <Textarea
+            id="json-input"
+            value={jsonInput}
+            onChange={e => handleJsonInputChange(e.target.value)}
+            placeholder="Paste JSON response dari Itemku di sini untuk mengisi otomatis ID di bawah..."
+            rows={5}
+            disabled={loading}
+          />
         </div>
         <div>
           <Label htmlFor="game-id-input">Game ID</Label>
