@@ -19,7 +19,7 @@ export const DenominationCard = ({ platform, denomination, onClick }: Denominati
   const internalStock = getVoucherCount(platform, parsedDenom);
   const externalStock = getExternalStockCount(platform, parsedDenom);
 
-  const isOutOfExternalStock = externalStock === 0;
+  const isOutOfExternalStock = externalStock != null && Number(externalStock) === 0;
 
   return (
     <Card
