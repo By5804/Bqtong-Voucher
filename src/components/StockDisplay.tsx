@@ -11,6 +11,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Database } from "@/integrations/supabase/types";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { formatNominalDisplay } from "@/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Label } from "@/components/ui/label";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
@@ -27,6 +29,7 @@ export const StockDisplay = () => {
   const [loadingExternalStates, setLoadingExternalStates] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
+  const [sortBy, setSortBy] = useState<'nominal' | 'internal' | 'external'>('nominal');
 
   const visiblePlatforms = useMemo(() => 
     denominationPlatforms.filter(p => p.is_visible_on_dashboard),
@@ -131,7 +134,23 @@ export const StockDisplay = () => {
   return (
     <TooltipProvider>
       <div className="w-full max-w-4xl">
-        <h2 className="text-2xl font-bold text-center mb-4">Stok Voucher Tersedia</h2>
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4">
+            <h2 className="text-2xl font-bold text-center">Stok Voucher Tersedia</h2>
+            <div className="flex items-center gap-2">
+                <Label htmlFor="sort-toggle" className="text-sm font-medium">Urutkan per:</Label>
+                <ToggleGroup
+                    id="sort-toggle"
+                    type="single"
+                    value={sortBy}
+                    onValueChange={(value) => { if (value) setSortBy(value as any); }}
+                    className="my-auto"
+                >
+                    <ToggleGroupItem value="nominal" aria-label="Sort by nominal">Nominal</ToggleGroupItem>
+                    <ToggleGroupItem value="internal" aria-label="Sort by internal stock">Stok Int</ToggleGroupItem>
+                    <ToggleGroupItem value="external" aria-label="Sort by external stock">Stok Ext</ToggleGroupItem>
+                </ToggleGroup>
+            </div>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {isLoading
@@ -169,10 +188,19 @@ export const StockDisplay = () => {
                       </Button>
                     )}
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-1">
                     {stock
                       .filter(item => item.platform === platform.platform_name)
                       .sort((a, b) => {
+                        if (sortBy === 'internal') {
+                          return b.internal - a.internal;
+                        }
+                        if (sortBy === 'external') {
+                          const extA = (typeof a.external === 'number') ? a.external : -1;
+                          const extB = (typeof b.external === 'number') ? b.external : -1;
+                          return extB - extA;
+                        }
+                        // Default to nominal sort
                         const numA = parseInt(a.nominal, 10);
                         const numB = parseInt(b.nominal, 10);
                         if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
@@ -180,40 +208,43 @@ export const StockDisplay = () => {
                         if (!isNaN(numB)) return 1;
                         return a.nominal.localeCompare(b.nominal);
                       })
-                      .map(({ nominal, internal, external }) => (
-                        <div key={`${platform.platform_name}-${nominal}`} className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            {formatNominalDisplay(nominal, platform.platform_name)}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Tooltip>
-                              <TooltipTrigger className="flex items-center gap-1">
-                                <span className="text-xs text-gray-500">Ext:</span>
-                                {external === null ? (
-                                  <span className="text-sm text-muted-foreground">Klik Refresh</span>
-                                ) : external === 'loading' ? (
-                                  <Skeleton className="h-4 w-6" />
-                                ) : (
-                                  <span className="font-semibold text-sm">{external}</span>
-                                )}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Stok di Platform Eksternal</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <span className="text-gray-300">|</span>
-                            <Tooltip>
-                              <TooltipTrigger className="flex items-center gap-1">
-                                <span className="text-xs text-gray-500">Int:</span>
-                                <span className="text-lg font-bold">{internal}</span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Stok di Database Internal Anda</p>
-                              </TooltipContent>
-                            </Tooltip>
+                      .map(({ nominal, internal, external }) => {
+                        const isOutOfExternalStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
+                        return (
+                          <div key={`${platform.platform_name}-${nominal}`} className={`flex justify-between items-center p-1.5 rounded-md ${isOutOfExternalStock ? 'bg-red-50/70' : ''}`}>
+                            <span className={`text-sm font-medium ${isOutOfExternalStock ? 'text-red-700' : 'text-muted-foreground'}`}>
+                              {formatNominalDisplay(nominal, platform.platform_name)}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">Ext:</span>
+                                  {external === null ? (
+                                    <span className="text-sm text-muted-foreground">...</span>
+                                  ) : external === 'loading' ? (
+                                    <Skeleton className="h-4 w-6" />
+                                  ) : (
+                                    <span className={`font-semibold text-sm ${isOutOfExternalStock ? 'text-red-700' : ''}`}>{external}</span>
+                                  )}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Stok di Platform Eksternal</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <span className="text-gray-300">|</span>
+                              <Tooltip>
+                                <TooltipTrigger className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">Int:</span>
+                                  <span className={`text-lg font-bold ${isOutOfExternalStock ? 'text-red-700' : ''}`}>{internal}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Stok di Database Internal Anda</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                   </CardContent>
                 </Card>
               ))}
