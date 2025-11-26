@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Database } from "@/integrations/supabase/types";
 import { useDenominations } from "@/contexts/DenominationContext";
-import { formatNominalDisplay } from "@/lib/utils";
+import { formatNominalDisplay, cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Label } from "@/components/ui/label";
 
@@ -209,10 +209,21 @@ export const StockDisplay = () => {
                         return a.nominal.localeCompare(b.nominal);
                       })
                       .map(({ nominal, internal, external }) => {
-                        const isOutOfExternalStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
+                        const isOutOfStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
+                        const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
+                        
                         return (
-                          <div key={`${platform.platform_name}-${nominal}`} className={`flex justify-between items-center p-1.5 rounded-md ${isOutOfExternalStock ? 'bg-red-50/70' : ''}`}>
-                            <span className={`text-sm font-medium ${isOutOfExternalStock ? 'text-red-700' : 'text-muted-foreground'}`}>
+                          <div key={`${platform.platform_name}-${nominal}`} className={cn(
+                            "flex justify-between items-center p-1.5 rounded-md",
+                            isOutOfStock && "bg-red-50/70",
+                            isLowStock && "bg-green-50/70"
+                          )}>
+                            <span className={cn(
+                              "text-sm font-medium",
+                              isOutOfStock && "text-red-700",
+                              isLowStock && "text-green-700",
+                              !isOutOfStock && !isLowStock && "text-muted-foreground"
+                            )}>
                               {formatNominalDisplay(nominal, platform.platform_name)}
                             </span>
                             <div className="flex items-center gap-2">
@@ -224,7 +235,11 @@ export const StockDisplay = () => {
                                   ) : external === 'loading' ? (
                                     <Skeleton className="h-4 w-6" />
                                   ) : (
-                                    <span className={`font-semibold text-sm ${isOutOfExternalStock ? 'text-red-700' : ''}`}>{external}</span>
+                                    <span className={cn(
+                                      "font-semibold text-sm",
+                                      isOutOfStock && "text-red-700",
+                                      isLowStock && "text-green-700"
+                                    )}>{external}</span>
                                   )}
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -235,7 +250,11 @@ export const StockDisplay = () => {
                               <Tooltip>
                                 <TooltipTrigger className="flex items-center gap-1">
                                   <span className="text-xs text-gray-500">Int:</span>
-                                  <span className={`text-lg font-bold ${isOutOfExternalStock ? 'text-red-700' : ''}`}>{internal}</span>
+                                  <span className={cn(
+                                    "text-lg font-bold",
+                                    isOutOfStock && "text-red-700",
+                                    isLowStock && "text-green-700"
+                                  )}>{internal}</span>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Stok di Database Internal Anda</p>
