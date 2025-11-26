@@ -142,6 +142,42 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
     refreshDenominations();
   };
 
+  const handleMoveDenom = async (denomName: string, direction: 'up' | 'down') => {
+    if (!selectedPlatform) return;
+
+    const denoms = selectedPlatform.denominations;
+    const currentIndex = denoms.findIndex(d => d === denomName);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= denoms.length) {
+      return; // Already at the top or bottom
+    }
+
+    const newDenoms = [...denoms];
+    const temp = newDenoms[currentIndex];
+    newDenoms[currentIndex] = newDenoms[targetIndex];
+    newDenoms[targetIndex] = temp;
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('platform_denominations')
+      .update({ denominations: newDenoms })
+      .eq('platform_name', selectedPlatform.platform_name)
+      .select()
+      .single();
+
+    if (error) {
+      toast({ title: "Error", description: `Gagal mengubah urutan: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ title: "Sukses", description: "Urutan nominal berhasil diperbarui." });
+      setSelectedPlatform(data);
+      refreshDenominations();
+    }
+    setLoading(false);
+  };
+
   const handleToggleExternalStock = async (platformName: string, currentState: boolean) => {
     setLoading(true);
     const { error } = await supabase
@@ -194,9 +230,9 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
         </div>
         <div className="border rounded-md">
           <Table>
-            <TableHeader><TableRow><TableHead>Nama Nominal</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Nama Nominal</TableHead><TableHead className="w-[120px]">Urutan</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
             <TableBody>
-              {selectedPlatform.denominations.map(denom => (
+              {selectedPlatform.denominations.map((denom, index) => (
                 <TableRow key={denom}>
                   <TableCell>
                     {denomToEdit?.oldName === denom ? (
@@ -204,6 +240,16 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
                     ) : (
                       denom
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="icon" onClick={() => handleMoveDenom(denom, 'up')} disabled={loading || index === 0}>
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="icon" onClick={() => handleMoveDenom(denom, 'down')} disabled={loading || index === selectedPlatform.denominations.length - 1}>
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     {denomToEdit?.oldName === denom ? (
