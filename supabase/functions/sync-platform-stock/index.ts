@@ -37,6 +37,7 @@ serve(async (req) => {
 
     const stockBreakdown = breakdownData.breakdown || [];
     let totalVouchersMarkedSold = 0;
+    const CHUNK_SIZE = 100; // Ukuran batch untuk pembaruan
 
     // 2. Iterate through each denomination and sync stock
     for (const item of stockBreakdown) {
@@ -68,14 +69,19 @@ serve(async (req) => {
         if (vouchersToUpdate && vouchersToUpdate.length > 0) {
           const voucherIds = vouchersToUpdate.map(v => v.id);
           
-          const { count, error: updateError } = await supabaseAdmin
-            .from('vouchers')
-            .update({ status: 'sold', sold_at: new Date().toISOString() })
-            .in('id', voucherIds);
+          // Update in chunks
+          for (let i = 0; i < voucherIds.length; i += CHUNK_SIZE) {
+            const chunk = voucherIds.slice(i, i + CHUNK_SIZE);
+            const { count, error: updateError } = await supabaseAdmin
+              .from('vouchers')
+              .update({ status: 'sold', sold_at: new Date().toISOString() })
+              .in('id', chunk);
 
-          if (updateError) {
-            console.error(`Error updating vouchers for ${platform} - ${nominal}:`, updateError);
-          } else {
+            if (updateError) {
+              console.error(`Error updating chunk for ${platform} - ${nominal}:`, updateError);
+              // Optionally break or continue based on desired error handling
+              break; 
+            }
             totalVouchersMarkedSold += count || 0;
           }
         }

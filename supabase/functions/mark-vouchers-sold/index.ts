@@ -53,7 +53,7 @@ serve(async (req) => {
     let totalUpdatedCount = 0;
     const CHUNK_SIZE = 100; // Ukuran batch untuk pembaruan
 
-    // 2. Update status dan waktu penjualan voucher yang terpilih
+    // 2. Update status dan waktu penjualan voucher yang terpilih dalam batch
     for (let i = 0; i < voucherIds.length; i += CHUNK_SIZE) {
       const chunk = voucherIds.slice(i, i + CHUNK_SIZE);
       const { error: updateError, count: chunkCount } = await supabaseAdmin
