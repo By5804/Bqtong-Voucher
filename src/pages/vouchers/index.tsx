@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { formatNominalDisplay } from "@/lib/utils";
 import { useDenominations } from "@/contexts/DenominationContext";
+import { MassDeleteVouchersDialog } from "@/components/MassDeleteVouchersDialog";
 
 type Voucher = Database['public']['Tables']['vouchers']['Row'];
 type Status = Database['public']['Tables']['vouchers']['Row']['status'];
@@ -230,11 +231,14 @@ export default function VoucherPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Manajemen Voucher</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">Manajemen Voucher</h1>
+        </div>
+        <MassDeleteVouchersDialog onActionComplete={fetchVouchers} />
       </div>
       
       <Card className="mb-8">
