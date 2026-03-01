@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Edit, PlusCircle, ArrowLeft, Save, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, Edit, PlusCircle, ArrowLeft, Save, ArrowUp, ArrowDown, PauseCircle, PlayCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useDenominations } from "@/contexts/DenominationContext";
 import { Database } from "@/integrations/supabase/types";
 import { parseNominalInput } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type PlatformDenomination = Database['public']['Tables']['platform_denominations']['Row'];
 
@@ -64,7 +65,6 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
         }
       }
     } else { // Adding new platform
-      // When adding a new platform, assign a sort_order that places it at the end
       const maxSortOrder = platforms.reduce((max, p) => Math.max(max, p.sort_order || 0), 0);
       const { error } = await supabase.from('platform_denominations').insert({ platform_name: trimmedName, denominations: [], sort_order: maxSortOrder + 1 });
       if (error) {
@@ -130,8 +130,15 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
   const handleDeleteDenom = async (denomName: string) => {
     if (!selectedPlatform) return;
     const updatedDenoms = selectedPlatform.denominations.filter(d => d !== denomName);
+    // Juga hapus dari on_hold jika ada
+    const updatedHoldDenoms = (selectedPlatform.on_hold_denominations || []).filter(d => d !== denomName);
+    
     setLoading(true);
-    const { data, error } = await supabase.from('platform_denominations').update({ denominations: updatedDenoms }).eq('platform_name', selectedPlatform.platform_name).select().single();
+    const { data, error } = await supabase.from('platform_denominations').update({ 
+      denominations: updatedDenoms,
+      on_hold_denominations: updatedHoldDenoms
+    }).eq('platform_name', selectedPlatform.platform_name).select().single();
+    
     if (error) {
       toast({ title: "Error", description: `Gagal menghapus nominal: ${error.message}`, variant: "destructive" });
     } else {
@@ -140,6 +147,34 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
     }
     setLoading(false);
     refreshDenominations();
+  };
+
+  const handleToggleHoldDenom = async (denomName: string) => {
+    if (!selectedPlatform) return;
+    
+    const currentHoldDenoms = selectedPlatform.on_hold_denominations || [];
+    const isCurrentlyHeld = currentHoldDenoms.includes(denomName);
+    
+    const updatedHoldDenoms = isCurrentlyHeld 
+      ? currentHoldDenoms.filter(d => d !== denomName)
+      : [...currentHoldDenoms, denomName];
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('platform_denominations')
+      .update({ on_hold_denominations: updatedHoldDenoms })
+      .eq('platform_name', selectedPlatform.platform_name)
+      .select()
+      .single();
+
+    if (error) {
+      toast({ title: "Error", description: `Gagal mengubah status hold: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ title: "Sukses", description: `Nominal ${isCurrentlyHeld ? 'diaktifkan kembali' : 'ditunda (On Hold)'}.` });
+      setSelectedPlatform(data);
+      refreshDenominations();
+    }
+    setLoading(false);
   };
 
   const handleMoveDenom = async (denomName: string, direction: 'up' | 'down') => {
@@ -232,46 +267,59 @@ export const DenominationForm = ({ onClose }: { onClose: () => void }) => {
           <Table>
             <TableHeader><TableRow><TableHead>Nama Nominal</TableHead><TableHead className="w-[120px]">Urutan</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
             <TableBody>
-              {selectedPlatform.denominations.map((denom, index) => (
-                <TableRow key={denom}>
-                  <TableCell>
-                    {denomToEdit?.oldName === denom ? (
-                      <Input value={denomToEdit.newName} onChange={e => setDenomToEdit({ ...denomToEdit, newName: e.target.value })} className="h-8" />
-                    ) : (
-                      denom
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleMoveDenom(denom, 'up')} disabled={loading || index === 0}>
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => handleMoveDenom(denom, 'down')} disabled={loading || index === selectedPlatform.denominations.length - 1}>
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {denomToEdit?.oldName === denom ? (
-                      <div className="flex gap-2 justify-end">
-                        <Button size="sm" onClick={handleSaveDenomEdit} disabled={loading}><Save className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="outline" onClick={() => setDenomToEdit(null)}>Batal</Button>
+              {selectedPlatform.denominations.map((denom, index) => {
+                const isHeld = (selectedPlatform.on_hold_denominations || []).includes(denom);
+                return (
+                  <TableRow key={denom} className={isHeld ? "bg-gray-50 opacity-60" : ""}>
+                    <TableCell>
+                      {denomToEdit?.oldName === denom ? (
+                        <Input value={denomToEdit.newName} onChange={e => setDenomToEdit({ ...denomToEdit, newName: e.target.value })} className="h-8" />
+                      ) : (
+                        <span className={isHeld ? "italic" : ""}>{denom} {isHeld && "(Hold)"}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleMoveDenom(denom, 'up')} disabled={loading || index === 0}>
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleMoveDenom(denom, 'down')} disabled={loading || index === selectedPlatform.denominations.length - 1}>
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="flex gap-2 justify-end">
-                        <Button size="sm" variant="outline" onClick={() => setDenomToEdit({ oldName: denom, newName: denom })} disabled={loading}><Edit className="h-4 w-4" /></Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button size="sm" variant="destructive" disabled={loading}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Hapus Nominal?</AlertDialogTitle><AlertDialogDescription>Ini akan menghapus nominal "{denom}" dari platform "{selectedPlatform.platform_name}".</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteDenom(denom)}>Hapus</AlertDialogAction></AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {denomToEdit?.oldName === denom ? (
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" onClick={handleSaveDenomEdit} disabled={loading}><Save className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="outline" onClick={() => setDenomToEdit(null)}>Batal</Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 justify-end">
+                          <Button 
+                            size="sm" 
+                            variant={isHeld ? "success" : "warning"} 
+                            className={cn(isHeld ? "bg-green-600 hover:bg-green-700 text-white" : "bg-orange-500 hover:bg-orange-600 text-white")}
+                            onClick={() => handleToggleHoldDenom(denom)} 
+                            disabled={loading}
+                            title={isHeld ? "Aktifkan" : "Tunda (Pause)"}
+                          >
+                            {isHeld ? <PlayCircle className="h-4 w-4" /> : <PauseCircle className="h-4 w-4" />}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setDenomToEdit({ oldName: denom, newName: denom })} disabled={loading}><Edit className="h-4 w-4" /></Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild><Button size="sm" variant="destructive" disabled={loading}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader><AlertDialogTitle>Hapus Nominal?</AlertDialogTitle><AlertDialogDescription>Ini akan menghapus nominal "{denom}" dari platform "{selectedPlatform.platform_name}".</AlertDialogDescription></AlertDialogHeader>
+                              <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteDenom(denom)}>Hapus</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

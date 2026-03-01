@@ -84,7 +84,8 @@ export type Database = {
           created_at: string;
           is_external_stock_enabled: boolean | null;
           is_visible_on_dashboard: boolean;
-          sort_order: number; // Added sort_order
+          sort_order: number;
+          on_hold_denominations: string[] | null;
         };
         Insert: {
           platform_name: string;
@@ -92,7 +93,8 @@ export type Database = {
           created_at?: string;
           is_external_stock_enabled?: boolean | null;
           is_visible_on_dashboard?: boolean;
-          sort_order?: number; // Added sort_order
+          sort_order?: number;
+          on_hold_denominations?: string[] | null;
         };
         Update: {
           platform_name?: string;
@@ -100,7 +102,8 @@ export type Database = {
           created_at?: string;
           is_external_stock_enabled?: boolean | null;
           is_visible_on_dashboard?: boolean;
-          sort_order?: number; // Added sort_order
+          sort_order?: number;
+          on_hold_denominations?: string[] | null;
         };
       };
       profiles: {
@@ -110,7 +113,7 @@ export type Database = {
           last_name: string | null;
           avatar_url: string | null;
           updated_at: string | null;
-        >;
+        };
         Insert: {
           id: string;
           first_name?: string | null;
