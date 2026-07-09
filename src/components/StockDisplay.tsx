@@ -143,35 +143,40 @@ export const StockDisplay = () => {
 
   const isLoading = loadingInternal || loadingDenominations;
 
-  const renderStockItem = (item: StockData, platformName: string) => {
+  const renderStockItem = (item: StockData, platformName: string, isLast: boolean) => {
     const { nominal, internal, external } = item;
     
-    const isOutOfStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
+    const isOutOfStock = (external === null || external === 'N/A' || Number(external) === 0) && internal === 0;
     const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
+    
+    // Check if there is active stock in either internal or external
+    const hasActiveStock = internal > 0 || (typeof external === 'number' && external > 0);
+
     const displayName = formatNominalDisplay(nominal, platformName);
 
     return (
       <div 
         key={`${platformName}-${nominal}`} 
         className={cn(
-          "flex items-center justify-between py-1.5 px-2 rounded-lg border border-transparent transition-all hover:bg-slate-55/60 dark:hover:bg-slate-800/50",
-          isOutOfStock 
-            ? "bg-red-50/40 dark:bg-red-950/10 border-red-100/30" 
-            : isLowStock 
-              ? "bg-amber-50/40 dark:bg-amber-950/10 border-amber-100/30" 
-              : ""
+          "flex items-center justify-between py-2 px-3 transition-all",
+          !isLast && "border-b border-slate-100/80 dark:border-slate-800/40",
+          hasActiveStock 
+            ? "bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" 
+            : isOutOfStock 
+              ? "bg-red-50/20 dark:bg-red-950/5 hover:bg-red-50/40 dark:hover:bg-red-950/10" 
+              : "hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
         )}
       >
         {/* Left Section: Name with Tooltip on Overflow */}
-        <div className="flex-1 min-w-0 pr-2">
+        <div className="flex-1 min-w-0 pr-3">
           <Tooltip>
             <TooltipTrigger asChild>
               <span className={cn(
-                "block text-[11px] font-semibold truncate cursor-help text-left select-none",
-                isOutOfStock 
-                  ? "text-red-700 dark:text-red-400" 
-                  : isLowStock 
-                    ? "text-amber-700 dark:text-amber-400" 
+                "block text-xs font-bold truncate cursor-help text-left select-none tracking-tight",
+                hasActiveStock 
+                  ? "text-emerald-800 dark:text-emerald-400" 
+                  : isOutOfStock 
+                    ? "text-red-700/80 dark:text-red-400/80 font-semibold" 
                     : "text-slate-700 dark:text-slate-300"
               )}>
                 {displayName}
@@ -183,41 +188,41 @@ export const StockDisplay = () => {
           </Tooltip>
         </div>
 
-        {/* Right Section: Perfectly Aligned Compact Badge */}
-        <div className="flex items-center shrink-0">
+        {/* Right Section: Compact Vertical aligned stock badge */}
+        <div className="flex items-center shrink-0 py-0.5">
           <div className={cn(
-            "flex items-center divide-x divide-slate-200 dark:divide-slate-700/50 rounded-md border text-[10px] font-mono shadow-sm bg-white dark:bg-slate-900",
-            isOutOfStock 
-              ? "border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-400" 
-              : isLowStock 
-                ? "border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400" 
+            "flex items-center divide-x divide-slate-200/80 dark:divide-slate-700/50 rounded-lg border text-xs font-mono shadow-sm bg-white dark:bg-slate-900",
+            hasActiveStock 
+              ? "border-emerald-200 dark:border-emerald-900/40" 
+              : isOutOfStock 
+                ? "border-red-100 dark:border-red-900/20 text-red-700/60 dark:text-red-400/60" 
                 : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
           )}>
-            {/* EXT STOCK */}
-            <div className="flex items-center justify-center w-[48px] py-0.5 gap-0.5">
-              <span className="text-[8px] opacity-60 uppercase font-sans font-medium">Ext</span>
-              <span className="font-bold">
+            {/* EXT STOCK (Fixed size for alignment) */}
+            <div className="flex items-center justify-center w-[54px] py-1 gap-1">
+              <span className="text-[9px] font-extrabold uppercase tracking-tight text-slate-400 dark:text-slate-500">EXT</span>
+              <span className="font-extrabold">
                 {external === null ? (
                   <span className="animate-pulse">...</span>
                 ) : external === 'loading' ? (
-                  <RefreshCw className="h-2 w-2 animate-spin inline-block text-indigo-500" />
+                  <RefreshCw className="h-2.5 w-2.5 animate-spin inline-block text-indigo-500" />
                 ) : (
                   external
                 )}
               </span>
             </div>
 
-            {/* INT STOCK */}
+            {/* INT STOCK (Fixed size for alignment) */}
             <div className={cn(
-              "flex items-center justify-center w-[48px] py-0.5 gap-0.5",
-              isOutOfStock 
-                ? "bg-red-50 dark:bg-red-950/20 font-extrabold text-red-600" 
-                : isLowStock 
-                  ? "bg-amber-50 dark:bg-amber-950/20 font-extrabold text-amber-600" 
-                  : "bg-emerald-50/50 dark:bg-emerald-950/10 font-bold text-emerald-600 dark:text-emerald-400"
+              "flex items-center justify-center w-[54px] py-1 gap-1 rounded-r-lg",
+              hasActiveStock 
+                ? "bg-emerald-500/10 font-black text-emerald-700 dark:text-emerald-400" 
+                : isOutOfStock 
+                  ? "bg-red-500/5 font-bold text-red-600/60 dark:text-red-400/60" 
+                  : "bg-slate-50 dark:bg-slate-800"
             )}>
-              <span className="text-[8px] opacity-60 uppercase font-sans font-medium">Int</span>
-              <span>{internal}</span>
+              <span className="text-[9px] font-extrabold uppercase tracking-tight text-slate-400 dark:text-slate-500">INT</span>
+              <span className="font-extrabold">{internal}</span>
             </div>
           </div>
         </div>
@@ -295,9 +300,10 @@ export const StockDisplay = () => {
                 const platformStock = stock.filter(item => item.platform === platform.platform_name);
                 if (platformStock.length === 0) return null;
                 
-                const hasCriticalStock = platformStock.some(item => {
-                  return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) === 0;
+                const hasCriticalStock = platformStock.every(item => {
+                  return (item.external === null || item.external === 'N/A' || Number(item.external) === 0) && item.internal === 0;
                 });
+                
                 const hasLowStock = platformStock.some(item => {
                   return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) > 0 && Number(item.external) < 5;
                 });
@@ -323,7 +329,7 @@ export const StockDisplay = () => {
                           : "bg-gradient-to-r from-indigo-500 to-purple-600"
                     )} />
 
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 pt-5">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-5 px-4">
                       <CardTitle className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                         {platform.platform_name}
                         {hasCriticalStock ? (
@@ -346,10 +352,12 @@ export const StockDisplay = () => {
                         </Button>
                       )}
                     </CardHeader>
-                    <CardContent className="space-y-1.5 pb-5 px-3">
-                      {platformStock
-                        .sort(sortStock)
-                        .map(item => renderStockItem(item, platform.platform_name))}
+                    <CardContent className="p-0 border-t border-slate-50 dark:border-slate-800/20">
+                      <div className="flex flex-col">
+                        {platformStock
+                          .sort(sortStock)
+                          .map((item, index) => renderStockItem(item, platform.platform_name, index === platformStock.length - 1))}
+                      </div>
                     </CardContent>
                   </Card>
                 );
