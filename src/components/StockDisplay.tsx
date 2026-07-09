@@ -111,120 +111,6 @@ export const StockDisplay = () => {
             .eq("status", "available");
           
           return {
-            platform: platform.platform_name<dyad-write path="src/components/StockDisplay.tsx" description="Beautify the stock item layout to align numbers perfectly in a straight line, truncate long text with tooltips, and improve aesthetic structure.">
-"use client";
-
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { Database } from "@/integrations/supabase/types";
-import { useDenominations, PlatformDenomination } from "@/contexts/DenominationContext";
-import { formatNominalDisplay, cn } from "@/lib/utils";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Label } from "@/components/ui/label";
-
-type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
-
-type StockData = {
-  platform: Platform;
-  nominal: string;
-  internal: number;
-  external: number | 'N/A' | 'loading' | null;
-  isOnHold: boolean;
-};
-
-export const StockDisplay = () => {
-  const [stock, setStock] = useState<StockData[]>([]);
-  const [loadingInternal, setLoadingInternal] = useState(true);
-  const [loadingExternalStates, setLoadingExternalStates] = useState<Record<string, boolean>>({});
-  const { toast } = useToast();
-  const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
-  const [sortBy, setSortBy] = useState<'nominal' | 'internal' | 'external'>('nominal');
-
-  const visiblePlatforms = useMemo(() => 
-    denominationPlatforms.filter(p => p.is_visible_on_dashboard),
-    [denominationPlatforms]
-  );
-
-  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform) => {
-    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: true }));
-
-    setStock(prevStock => 
-      prevStock.map(s => 
-        s.platform === targetPlatform && s.external !== 'N/A' ? { ...s, external: 'loading' } : s
-      )
-    );
-
-    const platformInfo = (denominationPlatforms as PlatformDenomination[]).find(p => p.platform_name === targetPlatform);
-    if (!platformInfo || !platformInfo.is_external_stock_enabled) {
-        setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
-        return;
-    }
-
-    const onHoldSet = new Set(platformInfo.on_hold_denominations || []);
-    const activeDenominations = platformInfo.denominations.filter(d => !onHoldSet.has(d));
-
-    const externalStockPromises = activeDenominations.map(async (nominal) => {
-        try {
-          const { data, error } = await supabase.functions.invoke('check-external-stock', {
-            body: { platform: targetPlatform, nominal: nominal },
-          });
-
-          if (error) {
-            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${targetPlatform} ${formatNominalDisplay(nominal, targetPlatform)}: ${error.message}`, variant: "destructive" });
-            return { platform: targetPlatform, nominal, external: 'N/A' as const };
-          }
-          return { platform: targetPlatform, nominal, external: data.stock };
-        } catch (err: any) {
-          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${targetPlatform} ${formatNominalDisplay(nominal, targetPlatform)}: ${err.message}`, variant: "destructive" });
-          return { platform: targetPlatform, nominal, external: 'N/A' as const };
-        }
-    });
-
-    const results = await Promise.all(externalStockPromises);
-
-    setStock(prevStock => {
-        const newStock = [...prevStock];
-        results.forEach(updatedItem => {
-          const index = newStock.findIndex(s => s.platform === updatedItem.platform && s.nominal === updatedItem.nominal);
-          if (index !== -1) {
-            newStock[index].external = updatedItem.external;
-          }
-        });
-        return newStock;
-    });
-
-    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
-  }, [denominationPlatforms, toast]);
-
-  const fetchInternalStock = useCallback(async () => {
-    if (loadingDenominations || visiblePlatforms.length === 0) {
-      if (!loadingDenominations) setLoadingInternal(false);
-      return;
-    }
-
-    setLoadingInternal(true);
-    const stockPromises: Promise<StockData>[] = [];
-
-    for (const platform of visiblePlatforms) {
-      const onHoldSet = new Set(platform.on_hold_denominations || []);
-      const activeDenominations = platform.denominations.filter(nominal => !onHoldSet.has(nominal));
-
-      for (const nominal of activeDenominations) {
-        const fetchItem = async (): Promise<StockData> => {
-          const { count } = await supabase
-            .from("vouchers")
-            .select("*", { count: "exact", head: true })
-            .eq("platform", platform.platform_name)
-            .eq("nominal", nominal)
-            .eq("status", "available");
-          
-          return {
             platform: platform.platform_name as Platform,
             nominal,
             internal: count || 0,
@@ -268,7 +154,7 @@ export const StockDisplay = () => {
       <div 
         key={`${platformName}-${nominal}`} 
         className={cn(
-          "flex items-center justify-between py-1.5 px-2.5 rounded-lg border border-transparent transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50",
+          "flex items-center justify-between py-1.5 px-2 rounded-lg border border-transparent transition-all hover:bg-slate-55/60 dark:hover:bg-slate-800/50",
           isOutOfStock 
             ? "bg-red-50/40 dark:bg-red-950/10 border-red-100/30" 
             : isLowStock 
@@ -277,11 +163,11 @@ export const StockDisplay = () => {
         )}
       >
         {/* Left Section: Name with Tooltip on Overflow */}
-        <div className="flex-1 min-w-0 pr-3">
+        <div className="flex-1 min-w-0 pr-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <span className={cn(
-                "block text-xs font-semibold truncate cursor-help text-left select-none",
+                "block text-[11px] font-semibold truncate cursor-help text-left select-none",
                 isOutOfStock 
                   ? "text-red-700 dark:text-red-400" 
                   : isLowStock 
@@ -300,37 +186,37 @@ export const StockDisplay = () => {
         {/* Right Section: Perfectly Aligned Compact Badge */}
         <div className="flex items-center shrink-0">
           <div className={cn(
-            "flex items-center divide-x divide-slate-200 dark:divide-slate-700/50 rounded-md border text-[11px] font-mono shadow-sm bg-white dark:bg-slate-900",
+            "flex items-center divide-x divide-slate-200 dark:divide-slate-700/50 rounded-md border text-[10px] font-mono shadow-sm bg-white dark:bg-slate-900",
             isOutOfStock 
               ? "border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-400" 
               : isLowStock 
                 ? "border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400" 
                 : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
           )}>
-            {/* EXT STOCK (Fixed size for alignment) */}
-            <div className="flex items-center justify-center w-14 py-1 gap-1">
-              <span className="text-[9px] opacity-60 uppercase font-sans font-medium">Ext</span>
+            {/* EXT STOCK */}
+            <div className="flex items-center justify-center w-[48px] py-0.5 gap-0.5">
+              <span className="text-[8px] opacity-60 uppercase font-sans font-medium">Ext</span>
               <span className="font-bold">
                 {external === null ? (
                   <span className="animate-pulse">...</span>
                 ) : external === 'loading' ? (
-                  <RefreshCw className="h-2.5 w-2.5 animate-spin inline-block text-indigo-500" />
+                  <RefreshCw className="h-2 w-2 animate-spin inline-block text-indigo-500" />
                 ) : (
                   external
                 )}
               </span>
             </div>
 
-            {/* INT STOCK (Fixed size for alignment) */}
+            {/* INT STOCK */}
             <div className={cn(
-              "flex items-center justify-center w-14 py-1 gap-1",
+              "flex items-center justify-center w-[48px] py-0.5 gap-0.5",
               isOutOfStock 
                 ? "bg-red-50 dark:bg-red-950/20 font-extrabold text-red-600" 
                 : isLowStock 
                   ? "bg-amber-50 dark:bg-amber-950/20 font-extrabold text-amber-600" 
                   : "bg-emerald-50/50 dark:bg-emerald-950/10 font-bold text-emerald-600 dark:text-emerald-400"
             )}>
-              <span className="text-[9px] opacity-60 uppercase font-sans font-medium">Int</span>
+              <span className="text-[8px] opacity-60 uppercase font-sans font-medium">Int</span>
               <span>{internal}</span>
             </div>
           </div>
