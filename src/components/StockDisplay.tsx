@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Check, Zap } from "lucide-react";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Check, Zap, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -26,6 +26,13 @@ type StockData = {
   isOnHold: boolean;
 };
 
+type SyncPreviewItem = {
+  nominal: string;
+  internal: number;
+  external: number;
+  diff: number;
+};
+
 export const StockDisplay = () => {
   const [stock, setStock] = useState<StockData[]>([]);
   const [loadingInternal, setLoadingInternal] = useState(true);
@@ -41,6 +48,11 @@ export const StockDisplay = () => {
   const [selectedManualItem, setSelectedManualItem] = useState<{ platform: Platform; nominal: string; internal: number } | null>(null);
   const [manualQuantity, setManualQuantity] = useState(1);
   const [submittingManual, setSubmittingManual] = useState(false);
+
+  // Category sync confirmation dialog state
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [platformToSync, setPlatformToSync] = useState<string | null>(null);
+  const [syncPreview, setSyncPreview] = useState<SyncPreviewItem[]>([]);
 
   const visiblePlatforms = useMemo(() => 
     denominationPlatforms.filter(p => p.is_visible_on_dashboard),
@@ -179,12 +191,45 @@ export const StockDisplay = () => {
     }
   };
 
-  // New function to sync an entire platform at once
-  const handleSyncEntirePlatform = async (platformName: string) => {
-    setSyncingPlatforms(prev => ({ ...prev, [platformName]: true }));
+  // Open the confirmation sync dialog for an entire platform
+  const openSyncPreview = (platformName: string) => {
+    const platformStock = stock.filter(item => item.platform === platformName);
+    
+    const previewItems = platformStock
+      .filter(item => {
+        const isExternalValidNumber = typeof item.external === 'number';
+        return isExternalValidNumber && item.internal > item.external;
+      })
+      .map(item => ({
+        nominal: item.nominal,
+        internal: item.internal,
+        external: Number(item.external),
+        diff: item.internal - Number(item.external)
+      }));
+
+    if (previewItems.length === 0) {
+      toast({ 
+        title: "Info", 
+        description: `Stok untuk seluruh kategori ${platformName} sudah sinkron sempurna dengan eksternal.` 
+      });
+      return;
+    }
+
+    setPlatformToSync(platformName);
+    setSyncPreview(previewItems);
+    setIsSyncDialogOpen(true);
+  };
+
+  // Execute actual database sync for the entire platform after user confirms
+  const executePlatformSync = async () => {
+    if (!platformToSync) return;
+
+    setIsSyncDialogOpen(false);
+    setSyncingPlatforms(prev => ({ ...prev, [platformToSync]: true }));
+    
     try {
       const { data, error } = await supabase.functions.invoke('sync-platform-stock', {
-        body: { platform: platformName },
+        body: { platform: platformToSync },
       });
 
       if (error) {
@@ -196,7 +241,9 @@ export const StockDisplay = () => {
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
-      setSyncingPlatforms(prev => ({ ...prev, [platformName]: false }));
+      setSyncingPlatforms(prev => ({ ...prev, [platformToSync]: false }));
+      setPlatformToSync(null);
+      setSyncPreview([]);
     }
   };
 
@@ -508,66 +555,65 @@ export const StockDisplay = () => {
 
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-5 px-4">
                       <CardTitle className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                        {platform.platform_name}
+                        <span>{platform.platform_name}</span>
                         {hasCriticalStock ? (
-                          <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
+                          <ShieldAlert className="h-3.5 w-3.5 text-red-500 shrink-0" />
                         ) : hasLowStock ? (
-                          <BadgeAlert className="h-3.5 w-3.5 text-amber-500" />
+                          <BadgeAlert className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                         ) : (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        )}
+                        
+                        {/* PINDAH KE SINI: Tombol Zap Sinkronisasi diletakkan tepat di samping centang status */}
+                        {platform.is_external_stock_enabled && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                onClick={() => openSyncPreview(platform.platform_name)} 
+                                disabled={!canSyncPlatform || syncingPlatforms[platform.platform_name]}
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  "h-6 w-6 rounded-full transition-all flex items-center justify-center ml-1 shrink-0 p-0",
+                                  canSyncPlatform 
+                                    ? "text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 hover:scale-110 active:scale-95" 
+                                    : "text-slate-300 dark:text-slate-700 cursor-default"
+                                )}
+                              >
+                                {syncingPlatforms[platform.platform_name] ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin text-indigo-500" />
+                                ) : (
+                                  <Zap className={cn("h-3.5 w-3.5", canSyncPlatform ? "fill-indigo-600 animate-pulse text-indigo-600" : "")} />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                              {canSyncPlatform 
+                                ? "Samakan Stok Semua Nominal di Kategori Ini" 
+                                : "Semua Nominal Kategori Ini Sudah Sesuai"}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </CardTitle>
                       
                       <div className="flex items-center gap-1">
                         {platform.is_external_stock_enabled && (
-                          <>
-                            {/* Refresh External Stock Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
-                                  disabled={loadingExternalStates[platform.platform_name]}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
-                                >
-                                  <RefreshCw className={cn("h-3 w-3", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs">
-                                Refresh Stok Eksternal
-                              </TooltipContent>
-                            </Tooltip>
-
-                            {/* Sync Entire Category / Platform Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  onClick={() => handleSyncEntirePlatform(platform.platform_name)} 
-                                  disabled={!canSyncPlatform || syncingPlatforms[platform.platform_name]}
-                                  variant="ghost"
-                                  size="icon"
-                                  className={cn(
-                                    "h-7 w-7 rounded-full transition-all",
-                                    canSyncPlatform 
-                                      ? "text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 hover:scale-110 active:scale-95" 
-                                      : "text-slate-300 dark:text-slate-700 cursor-default"
-                                  )}
-                                >
-                                  {syncingPlatforms[platform.platform_name] ? (
-                                    <RefreshCw className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Zap className={cn("h-3.5 w-3.5", canSyncPlatform ? "fill-indigo-600 animate-pulse" : "")} />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                {canSyncPlatform 
-                                  ? "Samakan Stok Semua Nominal di Kategori Ini" 
-                                  : "Semua Nominal Kategori Ini Sudah Sesuai"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
+                                disabled={loadingExternalStates[platform.platform_name]}
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
+                              >
+                                <RefreshCw className={cn("h-3 w-3", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              Refresh Stok Eksternal
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                     </CardHeader>
@@ -583,6 +629,54 @@ export const StockDisplay = () => {
               })}
         </div>
       </div>
+
+      {/* NEW: Confirmation Dialog showing nominal changes details for Category Sync */}
+      <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+              <AlertTriangle className="h-5 w-5 text-indigo-600 animate-pulse" />
+              Konfirmasi Sinkronisasi Kategori
+            </DialogTitle>
+            <DialogDescription className="text-left text-xs text-slate-500 dark:text-slate-400">
+              Berikut adalah daftar perubahan nominal pada kategori <strong className="text-slate-800 dark:text-slate-200">"{platformToSync}"</strong> yang akan ditandai terjual untuk menyamakan stok eksternal:
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Rincian item update */}
+          <div className="py-2.5 max-h-[280px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl px-2 space-y-2 bg-slate-50/50 dark:bg-slate-950/20">
+            {syncPreview.map((item) => (
+              <div 
+                key={item.nominal} 
+                className="flex items-center justify-between text-xs p-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-lg shadow-2xs"
+              >
+                <div className="text-left">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {formatNominalDisplay(item.nominal, platformToSync || '')}
+                  </span>
+                  <div className="text-[10px] text-slate-400 mt-0.5 flex gap-2">
+                    <span>Database: <strong>{item.internal}</strong></span>
+                    <span>•</span>
+                    <span>Eksternal: <strong>{item.external}</strong></span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded-md text-red-600 dark:text-red-400 font-bold font-mono">
+                  <span>-{item.diff}</span>
+                  <span className="text-[9px] font-medium tracking-tight">Terjual</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsSyncDialogOpen(false)}>Batal</Button>
+            <Button onClick={executePlatformSync} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              Ya, Sinkronkan ({syncPreview.reduce((sum, item) => sum + item.diff, 0)} Voucher)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Mini Modal for quick manual sale of N/A stock items */}
       <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
