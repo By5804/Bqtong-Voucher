@@ -149,8 +149,8 @@ export const StockDisplay = () => {
     const isOutOfStock = (external === null || external === 'N/A' || Number(external) === 0) && internal === 0;
     const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
     
-    // Check if there is active stock in either internal or external
-    const hasActiveStock = internal > 0 || (typeof external === 'number' && external > 0);
+    // Normal active stock means it has stock and is NOT in the low warning state
+    const hasActiveStock = (internal > 0 || (typeof external === 'number' && external > 0)) && !isLowStock;
 
     const displayName = formatNominalDisplay(nominal, platformName);
 
@@ -160,11 +160,13 @@ export const StockDisplay = () => {
         className={cn(
           "flex items-center justify-between py-2 px-3 transition-all",
           !isLast && "border-b border-slate-100/80 dark:border-slate-800/40",
-          hasActiveStock 
-            ? "bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" 
-            : isOutOfStock 
-              ? "bg-red-50/20 dark:bg-red-950/5 hover:bg-red-50/40 dark:hover:bg-red-950/10" 
-              : "hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+          isLowStock
+            ? "bg-amber-50/80 dark:bg-amber-950/20 hover:bg-amber-100/80 border-l-4 border-l-amber-500 pl-2"
+            : hasActiveStock 
+              ? "bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" 
+              : isOutOfStock 
+                ? "bg-red-50/20 dark:bg-red-950/5 hover:bg-red-50/40 dark:hover:bg-red-950/10" 
+                : "hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
         )}
       >
         {/* Left Section: Name with Tooltip on Overflow */}
@@ -173,11 +175,13 @@ export const StockDisplay = () => {
             <TooltipTrigger asChild>
               <span className={cn(
                 "block text-xs font-bold truncate cursor-help text-left select-none tracking-tight",
-                hasActiveStock 
-                  ? "text-emerald-800 dark:text-emerald-400" 
-                  : isOutOfStock 
-                    ? "text-red-700/80 dark:text-red-400/80 font-semibold" 
-                    : "text-slate-700 dark:text-slate-300"
+                isLowStock
+                  ? "text-amber-800 dark:text-amber-300"
+                  : hasActiveStock 
+                    ? "text-emerald-800 dark:text-emerald-400" 
+                    : isOutOfStock 
+                      ? "text-red-700/80 dark:text-red-400/80 font-semibold" 
+                      : "text-slate-700 dark:text-slate-300"
               )}>
                 {displayName}
               </span>
@@ -192,16 +196,21 @@ export const StockDisplay = () => {
         <div className="flex items-center shrink-0 py-0.5">
           <div className={cn(
             "flex items-center divide-x divide-slate-200/80 dark:divide-slate-700/50 rounded-lg border text-xs font-mono shadow-sm bg-white dark:bg-slate-900",
-            hasActiveStock 
-              ? "border-emerald-200 dark:border-emerald-900/40" 
-              : isOutOfStock 
-                ? "border-red-100 dark:border-red-900/20 text-red-700/60 dark:text-red-400/60" 
-                : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+            isLowStock
+              ? "border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+              : hasActiveStock 
+                ? "border-emerald-200 dark:border-emerald-900/40" 
+                : isOutOfStock 
+                  ? "border-red-100 dark:border-red-900/20 text-red-700/60 dark:text-red-400/60" 
+                  : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
           )}>
             {/* EXT STOCK (Fixed size for alignment) */}
-            <div className="flex items-center justify-center w-[54px] py-1 gap-1">
+            <div className={cn(
+              "flex items-center justify-center w-[54px] py-1 gap-1",
+              isLowStock && "bg-amber-500/10"
+            )}>
               <span className="text-[9px] font-extrabold uppercase tracking-tight text-slate-400 dark:text-slate-500">EXT</span>
-              <span className="font-extrabold">
+              <span className={cn("font-extrabold", isLowStock && "text-amber-600 dark:text-amber-400 animate-pulse")}>
                 {external === null ? (
                   <span className="animate-pulse">...</span>
                 ) : external === 'loading' ? (
@@ -215,11 +224,13 @@ export const StockDisplay = () => {
             {/* INT STOCK (Fixed size for alignment) */}
             <div className={cn(
               "flex items-center justify-center w-[54px] py-1 gap-1 rounded-r-lg",
-              hasActiveStock 
-                ? "bg-emerald-500/10 font-black text-emerald-700 dark:text-emerald-400" 
-                : isOutOfStock 
-                  ? "bg-red-500/5 font-bold text-red-600/60 dark:text-red-400/60" 
-                  : "bg-slate-50 dark:bg-slate-800"
+              isLowStock
+                ? "bg-amber-500/20 font-black text-amber-700 dark:text-amber-300"
+                : hasActiveStock 
+                  ? "bg-emerald-500/10 font-black text-emerald-700 dark:text-emerald-400" 
+                  : isOutOfStock 
+                    ? "bg-red-500/5 font-bold text-red-600/60 dark:text-red-400/60" 
+                    : "bg-slate-50 dark:bg-slate-800"
             )}>
               <span className="text-[9px] font-extrabold uppercase tracking-tight text-slate-400 dark:text-slate-500">INT</span>
               <span className="font-extrabold">{internal}</span>
