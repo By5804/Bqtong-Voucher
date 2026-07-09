@@ -29,7 +29,7 @@ serve(async (req) => {
     // 1. Get denominations for the platform
     const { data: platformData, error: denomError } = await supabaseAdmin
       .from('platform_denominations')
-      .select('denominations, is_external_stock_enabled')
+      .select('denominations, is_external_stock_enabled, on_hold_denominations')
       .eq('platform_name', platform)
       .single();
 
@@ -41,15 +41,18 @@ serve(async (req) => {
     }
 
     const denominations = platformData.denominations || [];
-    if (denominations.length === 0) {
+    const onHold = platformData.on_hold_denominations || [];
+    const activeDenominations = denominations.filter(d => !onHold.includes(d));
+
+    if (activeDenominations.length === 0) {
       return new Response(JSON.stringify({ breakdown: [], totals: { internal: 0, external: 0 } }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
     }
 
-    // 2. Fetch internal and external stock for each denomination in parallel
-    const stockPromises = denominations.map(async (nominal) => {
+    // 2. Fetch internal and external stock for each active denomination in parallel
+    const stockPromises = activeDenominations.map(async (nominal) => {
       // Internal stock promise
       const internalStockPromise = supabaseAdmin
         .from('vouchers')

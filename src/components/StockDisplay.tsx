@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, PauseCircle } from "lucide-react";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,7 +13,6 @@ import { useDenominations, PlatformDenomination } from "@/contexts/DenominationC
 import { formatNominalDisplay, cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
@@ -53,7 +52,11 @@ export const StockDisplay = () => {
         return;
     }
 
-    const externalStockPromises = platformInfo.denominations.map(async (nominal) => {
+    // Filter out on-hold denominations so we NEVER call external stock check for them
+    const onHoldSet = new Set(platformInfo.on_hold_denominations || []);
+    const activeDenominations = platformInfo.denominations.filter(d => !onHoldSet.has(d));
+
+    const externalStockPromises = activeDenominations.map(async (nominal) => {
         try {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
             body: { platform: targetPlatform, nominal: nominal },
@@ -96,10 +99,12 @@ export const StockDisplay = () => {
     const stockPromises: Promise<StockData>[] = [];
 
     for (const platform of visiblePlatforms) {
-      for (const nominal of platform.denominations) {
-        const isOnHold = (platform.on_hold_denominations || []).includes(nominal);
-        
-        // Use an async function within the map to ensure we return a real Promise
+      const onHoldSet = new Set(platform.on_hold_denominations || []);
+      
+      // Filter out on-hold denominations completely so we don't fetch internal stock either
+      const activeDenominations = platform.denominations.filter(nominal => !onHoldSet.has(nominal));
+
+      for (const nominal of activeDenominations) {
         const fetchItem = async (): Promise<StockData> => {
           const { count } = await supabase
             .from("vouchers")
@@ -113,7 +118,7 @@ export const StockDisplay = () => {
             nominal,
             internal: count || 0,
             external: platform.is_external_stock_enabled ? null : 'N/A' as const,
-            isOnHold
+            isOnHold: false
           };
         };
         
@@ -141,55 +146,74 @@ export const StockDisplay = () => {
 
   const isLoading = loadingInternal || loadingDenominations;
 
-  const activeStock = stock.filter(item => !item.isOnHold);
-  const onHoldStock = stock.filter(item => item.isOnHold);
-
   const renderStockItem = (item: StockData, platformName: string) => {
-    const { nominal, internal, external, isOnHold } = item;
+    const { nominal, internal, external } = item;
+    
     const isOutOfStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
     const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
     
     return (
-      <div key={`${platformName}-${nominal}`} className={cn(
-        "flex justify-between items-center p-1.5 rounded-md",
-        isOnHold ? "bg-gray-50/50" : (isOutOfStock ? "bg-red-50/70" : (isLowStock ? "bg-green-50/70" : ""))
-      )}>
+      <div 
+        key={`${platformName}-${nominal}`} 
+        className={cn(
+          "flex justify-between items-center p-2.5 rounded-lg border border-transparent transition-all hover:bg-white/50 dark:hover:bg-slate-800/40",
+          isOutOfStock 
+            ? "bg-red-50/40 dark:bg-red-950/10 border-red-100/50 dark:border-red-900/20" 
+            : isLowStock 
+              ? "bg-amber-50/40 dark:bg-amber-950/10 border-amber-100/50 dark:border-amber-900/20" 
+              : "hover:border-slate-100 dark:hover:border-slate-800"
+        )}
+      >
         <span className={cn(
-          "text-sm font-medium",
-          isOnHold ? "text-gray-400 italic" : (isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : "text-muted-foreground"))
+          "text-sm font-semibold tracking-tight",
+          isOutOfStock 
+            ? "text-red-700 dark:text-red-400" 
+            : isLowStock 
+              ? "text-amber-700 dark:text-amber-400" 
+              : "text-slate-700 dark:text-slate-300"
         )}>
           {formatNominalDisplay(nominal, platformName)}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Tooltip>
-            <TooltipTrigger className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Ext:</span>
+            <TooltipTrigger className="flex items-center gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Ext</span>
               {external === null ? (
-                <span className="text-sm text-muted-foreground">...</span>
+                <span className="text-xs font-semibold text-slate-400">...</span>
               ) : external === 'loading' ? (
-                <Skeleton className="h-4 w-6" />
+                <Skeleton className="h-4 w-7 rounded-sm" />
               ) : (
                 <span className={cn(
-                  "font-semibold text-sm",
-                  isOnHold ? "text-gray-400" : (isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : ""))
+                  "font-bold text-xs px-1.5 py-0.5 rounded-md",
+                  isOutOfStock 
+                    ? "text-red-700 bg-red-100/50 dark:text-red-400 dark:bg-red-950/30" 
+                    : isLowStock 
+                      ? "text-amber-700 bg-amber-100/50 dark:text-amber-400 dark:bg-amber-950/30" 
+                      : "text-slate-600 bg-slate-100/50 dark:text-slate-400 dark:bg-slate-800/30"
                 )}>{external}</span>
               )}
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Stok di Platform Eksternal</p>
+            <TooltipContent side="top">
+              <p className="text-xs">Stok di Platform Eksternal</p>
             </TooltipContent>
           </Tooltip>
-          <span className="text-gray-300">|</span>
+
+          <span className="text-slate-200 dark:text-slate-800 font-light">/</span>
+
           <Tooltip>
-            <TooltipTrigger className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Int:</span>
+            <TooltipTrigger className="flex items-center gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Int</span>
               <span className={cn(
-                "text-lg font-bold",
-                isOnHold ? "text-gray-400" : (isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : ""))
+                "text-sm font-bold px-1.5 py-0.5 rounded-md",
+                isOutOfStock 
+                  ? "text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-950/50" 
+                  : isLowStock 
+                    ? "text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-950/50" 
+                    : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30"
               )}>{internal}</span>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Stok di Database Internal Anda</p>
+            <TooltipContent side="top">
+              <p className="text-xs">Stok Terbaca di Database Internal</p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -214,109 +238,121 @@ export const StockDisplay = () => {
 
   return (
     <TooltipProvider>
-      <div className="w-full max-w-4xl space-y-8">
-        <div>
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4">
-              <h2 className="text-2xl font-bold text-center">Stok Voucher Tersedia</h2>
-              <div className="flex items-center gap-2">
-                  <Label htmlFor="sort-toggle" className="text-sm font-medium">Urutkan per:</Label>
-                  <ToggleGroup
-                      id="sort-toggle"
-                      type="single"
-                      value={sortBy}
-                      onValueChange={(value) => { if (value) setSortBy(value as any); }}
-                      className="my-auto"
-                  >
-                      <ToggleGroupItem value="nominal" aria-label="Sort by nominal">Nominal</ToggleGroupItem>
-                      <ToggleGroupItem value="internal" aria-label="Sort by internal stock">Stok Int</ToggleGroupItem>
-                      <ToggleGroupItem value="external" aria-label="Sort by external stock">Stok Ext</ToggleGroupItem>
-                  </ToggleGroup>
-              </div>
+      <div className="w-full space-y-6">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+              <Layers className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                Stok Monitor Real-time 
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Menampilkan stok internal database & eksternal live.</p>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {isLoading
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <Card key={`skel-${i}`}>
-                    <CardHeader><CardTitle><Skeleton className="h-6 w-24" /></CardTitle></CardHeader>
-                    <CardContent className="space-y-2">
-                      {Array.from({ length: 4 }).map((_, j) => (
-                        <div key={`skel-item-${j}`} className="flex justify-between items-center">
-                          <span><Skeleton className="h-4 w-16" /></span>
-                          <span><Skeleton className="h-4 w-8" /></span>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))
-              : visiblePlatforms.map((platform) => {
-                  const platformStock = activeStock.filter(item => item.platform === platform.platform_name);
-                  if (platformStock.length === 0) return null;
-                  
-                  return (
-                    <Card key={platform.platform_name}>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-lg font-medium">{platform.platform_name}</CardTitle>
-                        {platform.is_external_stock_enabled && (
-                          <Button 
-                            onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
-                            disabled={loadingExternalStates[platform.platform_name]}
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1 text-xs"
-                          >
-                            {loadingExternalStates[platform.platform_name] ? (
-                              <RefreshCw className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3 w-3" />
-                            )}
-                            Refresh
-                          </Button>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-1">
-                        {platformStock
-                          .sort(sortStock)
-                          .map(item => renderStockItem(item, platform.platform_name))}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+          <div className="flex flex-wrap items-center gap-3">
+            <Label htmlFor="sort-toggle" className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Urutan:</Label>
+            <ToggleGroup
+              id="sort-toggle"
+              type="single"
+              value={sortBy}
+              onValueChange={(value) => { if (value) setSortBy(value as any); }}
+              className="bg-slate-50 dark:bg-slate-850 p-1 rounded-xl border border-slate-100 dark:border-slate-800"
+            >
+              <ToggleGroupItem value="nominal" className="text-xs px-3 py-1.5 rounded-lg data-[state=on]:bg-white dark:data-[state=on]:bg-slate-800 data-[state=on]:shadow-sm">Nominal</ToggleGroupItem>
+              <ToggleGroupItem value="internal" className="text-xs px-3 py-1.5 rounded-lg data-[state=on]:bg-white dark:data-[state=on]:bg-slate-800 data-[state=on]:shadow-sm">Stok Int</ToggleGroupItem>
+              <ToggleGroupItem value="external" className="text-xs px-3 py-1.5 rounded-lg data-[state=on]:bg-white dark:data-[state=on]:bg-slate-800 data-[state=on]:shadow-sm">Stok Ext</ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
-
-        {onHoldStock.length > 0 && (
-          <div className="pt-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Separator className="flex-1" />
-              <div className="flex items-center gap-2 px-2 text-orange-600 bg-orange-50 py-1 rounded-full text-sm font-semibold border border-orange-100">
-                <PauseCircle className="h-4 w-4" />
-                List On Hold
-              </div>
-              <Separator className="flex-1" />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-75">
-              {visiblePlatforms.map((platform) => {
-                const platformHoldStock = onHoldStock.filter(item => item.platform === platform.platform_name);
-                if (platformHoldStock.length === 0) return null;
+          
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <Card key={`skel-${i}`} className="border-none shadow-sm bg-slate-50 dark:bg-slate-900 animate-pulse">
+                  <CardHeader className="pb-3"><Skeleton className="h-6 w-24 rounded-md" /></CardHeader>
+                  <CardContent className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, j) => (
+                      <div key={`skel-item-${j}`} className="flex justify-between items-center">
+                        <Skeleton className="h-5 w-20 rounded-md" />
+                        <Skeleton className="h-5 w-12 rounded-md" />
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))
+            : visiblePlatforms.map((platform) => {
+                const platformStock = stock.filter(item => item.platform === platform.platform_name);
+                if (platformStock.length === 0) return null;
+                
+                // Assess if platform has warnings (low external stocks)
+                const hasCriticalStock = platformStock.some(item => {
+                  return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) === 0;
+                });
+                const hasLowStock = platformStock.some(item => {
+                  return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) > 0 && Number(item.external) < 5;
+                });
 
                 return (
-                  <Card key={`hold-${platform.platform_name}`} className="border-orange-100 bg-orange-50/10">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold text-orange-700/70">{platform.platform_name} (Hold)</CardTitle>
+                  <Card 
+                    key={platform.platform_name}
+                    className={cn(
+                      "group border-none shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] transition-all duration-300 hover:translate-y-[-2px] bg-white dark:bg-slate-900 overflow-hidden relative",
+                      hasCriticalStock 
+                        ? "ring-1 ring-red-500/20 hover:ring-red-500/40" 
+                        : hasLowStock 
+                          ? "ring-1 ring-amber-500/20 hover:ring-amber-500/40"
+                          : "ring-1 ring-slate-100 dark:ring-slate-800 hover:ring-indigo-500/20"
+                    )}
+                  >
+                    {/* Visual indicators at the top edge of the card */}
+                    <div className={cn(
+                      "h-1.5 w-full absolute top-0 left-0",
+                      hasCriticalStock 
+                        ? "bg-gradient-to-r from-red-500 to-rose-600" 
+                        : hasLowStock 
+                          ? "bg-gradient-to-r from-amber-500 to-orange-500" 
+                          : "bg-gradient-to-r from-indigo-500 to-purple-600"
+                    )} />
+
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 pt-5">
+                      <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        {platform.platform_name}
+                        {hasCriticalStock ? (
+                          <ShieldAlert className="h-4 w-4 text-red-500 animate-bounce" />
+                        ) : hasLowStock ? (
+                          <BadgeAlert className="h-4 w-4 text-amber-500" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        )}
+                      </CardTitle>
+                      {platform.is_external_stock_enabled && (
+                        <Button 
+                          onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
+                          disabled={loadingExternalStates[platform.platform_name]}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
+                        >
+                          <RefreshCw className={cn("h-3.5 w-3.5", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
+                        </Button>
+                      )}
                     </CardHeader>
-                    <CardContent className="space-y-1">
-                      {platformHoldStock
+                    <CardContent className="space-y-1.5 pb-5">
+                      {platformStock
                         .sort(sortStock)
                         .map(item => renderStockItem(item, platform.platform_name))}
                     </CardContent>
                   </Card>
                 );
               })}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </TooltipProvider>
   );
