@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Check, ArrowRight, Zap } from "lucide-react";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Check, Zap } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -31,6 +31,7 @@ export const StockDisplay = () => {
   const [loadingInternal, setLoadingInternal] = useState(true);
   const [loadingExternalStates, setLoadingExternalStates] = useState<Record<string, boolean>>({});
   const [syncingStates, setSyncingStates] = useState<Record<string, boolean>>({});
+  const [syncingPlatforms, setSyncingPlatforms] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
   const [sortBy, setSortBy] = useState<'nominal' | 'internal' | 'external'>('nominal');
@@ -169,13 +170,33 @@ export const StockDisplay = () => {
         toast({ title: "Gagal Sinkronisasi", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Sinkronisasi Berhasil", description: `${diff} voucher pada ${platform} - ${formatNominalDisplay(nominal, platform)} berhasil ditandai terjual.` });
-        // Refresh stock numbers
         fetchInternalStock();
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setSyncingStates(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  // New function to sync an entire platform at once
+  const handleSyncEntirePlatform = async (platformName: string) => {
+    setSyncingPlatforms(prev => ({ ...prev, [platformName]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-platform-stock', {
+        body: { platform: platformName },
+      });
+
+      if (error) {
+        toast({ title: "Gagal Sinkronisasi Kategori", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Sukses Sinkronisasi Kategori", description: data.message });
+        fetchInternalStock();
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncingPlatforms(prev => ({ ...prev, [platformName]: false }));
     }
   };
 
@@ -319,7 +340,7 @@ export const StockDisplay = () => {
             </div>
           </div>
 
-          {/* New "Samakan Stok / Terjual" Action Button */}
+          {/* Individual Nominal Action Button */}
           {external === 'N/A' ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -458,6 +479,12 @@ export const StockDisplay = () => {
                   return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) > 0 && Number(item.external) < 5;
                 });
 
+                // Check if ANY item in this entire platform is out of sync (internal > external)
+                const canSyncPlatform = platformStock.some(item => {
+                  const isExternalValidNumber = typeof item.external === 'number';
+                  return isExternalValidNumber && item.internal > item.external;
+                });
+
                 return (
                   <Card 
                     key={platform.platform_name}
@@ -490,17 +517,59 @@ export const StockDisplay = () => {
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                         )}
                       </CardTitle>
-                      {platform.is_external_stock_enabled && (
-                        <Button 
-                          onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
-                          disabled={loadingExternalStates[platform.platform_name]}
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
-                        >
-                          <RefreshCw className={cn("h-3 w-3", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
-                        </Button>
-                      )}
+                      
+                      <div className="flex items-center gap-1">
+                        {platform.is_external_stock_enabled && (
+                          <>
+                            {/* Refresh External Stock Button */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  onClick={() => fetchExternalStockForPlatform(platform.platform_name as Platform)} 
+                                  disabled={loadingExternalStates[platform.platform_name]}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
+                                >
+                                  <RefreshCw className={cn("h-3 w-3", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Refresh Stok Eksternal
+                              </TooltipContent>
+                            </Tooltip>
+
+                            {/* Sync Entire Category / Platform Button */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  onClick={() => handleSyncEntirePlatform(platform.platform_name)} 
+                                  disabled={!canSyncPlatform || syncingPlatforms[platform.platform_name]}
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(
+                                    "h-7 w-7 rounded-full transition-all",
+                                    canSyncPlatform 
+                                      ? "text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 hover:scale-110 active:scale-95" 
+                                      : "text-slate-300 dark:text-slate-700 cursor-default"
+                                  )}
+                                >
+                                  {syncingPlatforms[platform.platform_name] ? (
+                                    <RefreshCw className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Zap className={cn("h-3.5 w-3.5", canSyncPlatform ? "fill-indigo-600 animate-pulse" : "")} />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                                {canSyncPlatform 
+                                  ? "Samakan Stok Semua Nominal di Kategori Ini" 
+                                  : "Semua Nominal Kategori Ini Sudah Sesuai"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent className="p-0 border-t border-slate-50 dark:border-slate-800/20">
                       <div className="flex flex-col">
