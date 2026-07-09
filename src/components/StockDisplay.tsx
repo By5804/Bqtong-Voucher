@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, TrendingUp } from "lucide-react";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -52,7 +52,6 @@ export const StockDisplay = () => {
         return;
     }
 
-    // Filter out on-hold denominations so we NEVER call external stock check for them
     const onHoldSet = new Set(platformInfo.on_hold_denominations || []);
     const activeDenominations = platformInfo.denominations.filter(d => !onHoldSet.has(d));
 
@@ -100,8 +99,120 @@ export const StockDisplay = () => {
 
     for (const platform of visiblePlatforms) {
       const onHoldSet = new Set(platform.on_hold_denominations || []);
-      
-      // Filter out on-hold denominations completely so we don't fetch internal stock either
+      const activeDenominations = platform.denominations.filter(nominal => !onHoldSet.has(nominal));
+
+      for (const nominal of activeDenominations) {
+        const fetchItem = async (): Promise<StockData> => {
+          const { count } = await supabase
+            .from("vouchers")
+            .select("*", { count: "exact", head: true })
+            .eq("platform", platform.platform_name)
+            .eq("nominal", nominal)
+            .eq("status", "available");
+          
+          return {
+            platform: platform.platform_name<dyad-write path="src/components/StockDisplay.tsx" description="Beautify the stock item layout to align numbers perfectly in a straight line, truncate long text with tooltips, and improve aesthetic structure.">
+"use client";
+
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { Database } from "@/integrations/supabase/types";
+import { useDenominations, PlatformDenomination } from "@/contexts/DenominationContext";
+import { formatNominalDisplay, cn } from "@/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Label } from "@/components/ui/label";
+
+type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
+
+type StockData = {
+  platform: Platform;
+  nominal: string;
+  internal: number;
+  external: number | 'N/A' | 'loading' | null;
+  isOnHold: boolean;
+};
+
+export const StockDisplay = () => {
+  const [stock, setStock] = useState<StockData[]>([]);
+  const [loadingInternal, setLoadingInternal] = useState(true);
+  const [loadingExternalStates, setLoadingExternalStates] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
+  const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
+  const [sortBy, setSortBy] = useState<'nominal' | 'internal' | 'external'>('nominal');
+
+  const visiblePlatforms = useMemo(() => 
+    denominationPlatforms.filter(p => p.is_visible_on_dashboard),
+    [denominationPlatforms]
+  );
+
+  const fetchExternalStockForPlatform = useCallback(async (targetPlatform: Platform) => {
+    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: true }));
+
+    setStock(prevStock => 
+      prevStock.map(s => 
+        s.platform === targetPlatform && s.external !== 'N/A' ? { ...s, external: 'loading' } : s
+      )
+    );
+
+    const platformInfo = (denominationPlatforms as PlatformDenomination[]).find(p => p.platform_name === targetPlatform);
+    if (!platformInfo || !platformInfo.is_external_stock_enabled) {
+        setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
+        return;
+    }
+
+    const onHoldSet = new Set(platformInfo.on_hold_denominations || []);
+    const activeDenominations = platformInfo.denominations.filter(d => !onHoldSet.has(d));
+
+    const externalStockPromises = activeDenominations.map(async (nominal) => {
+        try {
+          const { data, error } = await supabase.functions.invoke('check-external-stock', {
+            body: { platform: targetPlatform, nominal: nominal },
+          });
+
+          if (error) {
+            toast({ title: "Error", description: `Gagal memuat stok eksternal untuk ${targetPlatform} ${formatNominalDisplay(nominal, targetPlatform)}: ${error.message}`, variant: "destructive" });
+            return { platform: targetPlatform, nominal, external: 'N/A' as const };
+          }
+          return { platform: targetPlatform, nominal, external: data.stock };
+        } catch (err: any) {
+          toast({ title: "Error", description: `Terjadi kesalahan saat memuat stok eksternal untuk ${targetPlatform} ${formatNominalDisplay(nominal, targetPlatform)}: ${err.message}`, variant: "destructive" });
+          return { platform: targetPlatform, nominal, external: 'N/A' as const };
+        }
+    });
+
+    const results = await Promise.all(externalStockPromises);
+
+    setStock(prevStock => {
+        const newStock = [...prevStock];
+        results.forEach(updatedItem => {
+          const index = newStock.findIndex(s => s.platform === updatedItem.platform && s.nominal === updatedItem.nominal);
+          if (index !== -1) {
+            newStock[index].external = updatedItem.external;
+          }
+        });
+        return newStock;
+    });
+
+    setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
+  }, [denominationPlatforms, toast]);
+
+  const fetchInternalStock = useCallback(async () => {
+    if (loadingDenominations || visiblePlatforms.length === 0) {
+      if (!loadingDenominations) setLoadingInternal(false);
+      return;
+    }
+
+    setLoadingInternal(true);
+    const stockPromises: Promise<StockData>[] = [];
+
+    for (const platform of visiblePlatforms) {
+      const onHoldSet = new Set(platform.on_hold_denominations || []);
       const activeDenominations = platform.denominations.filter(nominal => !onHoldSet.has(nominal));
 
       for (const nominal of activeDenominations) {
@@ -151,71 +262,78 @@ export const StockDisplay = () => {
     
     const isOutOfStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
     const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
-    
+    const displayName = formatNominalDisplay(nominal, platformName);
+
     return (
       <div 
         key={`${platformName}-${nominal}`} 
         className={cn(
-          "flex justify-between items-center p-2.5 rounded-lg border border-transparent transition-all hover:bg-white/50 dark:hover:bg-slate-800/40",
+          "flex items-center justify-between py-1.5 px-2.5 rounded-lg border border-transparent transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50",
           isOutOfStock 
-            ? "bg-red-50/40 dark:bg-red-950/10 border-red-100/50 dark:border-red-900/20" 
+            ? "bg-red-50/40 dark:bg-red-950/10 border-red-100/30" 
             : isLowStock 
-              ? "bg-amber-50/40 dark:bg-amber-950/10 border-amber-100/50 dark:border-amber-900/20" 
-              : "hover:border-slate-100 dark:hover:border-slate-800"
+              ? "bg-amber-50/40 dark:bg-amber-950/10 border-amber-100/30" 
+              : ""
         )}
       >
-        <span className={cn(
-          "text-sm font-semibold tracking-tight",
-          isOutOfStock 
-            ? "text-red-700 dark:text-red-400" 
-            : isLowStock 
-              ? "text-amber-700 dark:text-amber-400" 
-              : "text-slate-700 dark:text-slate-300"
-        )}>
-          {formatNominalDisplay(nominal, platformName)}
-        </span>
-        <div className="flex items-center gap-3">
+        {/* Left Section: Name with Tooltip on Overflow */}
+        <div className="flex-1 min-w-0 pr-3">
           <Tooltip>
-            <TooltipTrigger className="flex items-center gap-1.5">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Ext</span>
-              {external === null ? (
-                <span className="text-xs font-semibold text-slate-400">...</span>
-              ) : external === 'loading' ? (
-                <Skeleton className="h-4 w-7 rounded-sm" />
-              ) : (
-                <span className={cn(
-                  "font-bold text-xs px-1.5 py-0.5 rounded-md",
-                  isOutOfStock 
-                    ? "text-red-700 bg-red-100/50 dark:text-red-400 dark:bg-red-950/30" 
-                    : isLowStock 
-                      ? "text-amber-700 bg-amber-100/50 dark:text-amber-400 dark:bg-amber-950/30" 
-                      : "text-slate-600 bg-slate-100/50 dark:text-slate-400 dark:bg-slate-800/30"
-                )}>{external}</span>
-              )}
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">Stok di Platform Eksternal</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <span className="text-slate-200 dark:text-slate-800 font-light">/</span>
-
-          <Tooltip>
-            <TooltipTrigger className="flex items-center gap-1.5">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Int</span>
+            <TooltipTrigger asChild>
               <span className={cn(
-                "text-sm font-bold px-1.5 py-0.5 rounded-md",
+                "block text-xs font-semibold truncate cursor-help text-left select-none",
                 isOutOfStock 
-                  ? "text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-950/50" 
+                  ? "text-red-700 dark:text-red-400" 
                   : isLowStock 
-                    ? "text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-950/50" 
-                    : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30"
-              )}>{internal}</span>
+                    ? "text-amber-700 dark:text-amber-400" 
+                    : "text-slate-700 dark:text-slate-300"
+              )}>
+                {displayName}
+              </span>
             </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">Stok Terbaca di Database Internal</p>
+            <TooltipContent side="top" className="max-w-[280px] break-words text-xs">
+              {displayName}
             </TooltipContent>
           </Tooltip>
+        </div>
+
+        {/* Right Section: Perfectly Aligned Compact Badge */}
+        <div className="flex items-center shrink-0">
+          <div className={cn(
+            "flex items-center divide-x divide-slate-200 dark:divide-slate-700/50 rounded-md border text-[11px] font-mono shadow-sm bg-white dark:bg-slate-900",
+            isOutOfStock 
+              ? "border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-400" 
+              : isLowStock 
+                ? "border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400" 
+                : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+          )}>
+            {/* EXT STOCK (Fixed size for alignment) */}
+            <div className="flex items-center justify-center w-14 py-1 gap-1">
+              <span className="text-[9px] opacity-60 uppercase font-sans font-medium">Ext</span>
+              <span className="font-bold">
+                {external === null ? (
+                  <span className="animate-pulse">...</span>
+                ) : external === 'loading' ? (
+                  <RefreshCw className="h-2.5 w-2.5 animate-spin inline-block text-indigo-500" />
+                ) : (
+                  external
+                )}
+              </span>
+            </div>
+
+            {/* INT STOCK (Fixed size for alignment) */}
+            <div className={cn(
+              "flex items-center justify-center w-14 py-1 gap-1",
+              isOutOfStock 
+                ? "bg-red-50 dark:bg-red-950/20 font-extrabold text-red-600" 
+                : isLowStock 
+                  ? "bg-amber-50 dark:bg-amber-950/20 font-extrabold text-amber-600" 
+                  : "bg-emerald-50/50 dark:bg-emerald-950/10 font-bold text-emerald-600 dark:text-emerald-400"
+            )}>
+              <span className="text-[9px] opacity-60 uppercase font-sans font-medium">Int</span>
+              <span>{internal}</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -244,7 +362,7 @@ export const StockDisplay = () => {
             <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
               <Layers className="h-5 w-5" />
             </div>
-            <div>
+            <div className="text-left">
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 Stok Monitor Real-time 
                 <span className="relative flex h-2 w-2">
@@ -291,7 +409,6 @@ export const StockDisplay = () => {
                 const platformStock = stock.filter(item => item.platform === platform.platform_name);
                 if (platformStock.length === 0) return null;
                 
-                // Assess if platform has warnings (low external stocks)
                 const hasCriticalStock = platformStock.some(item => {
                   return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) === 0;
                 });
@@ -311,7 +428,6 @@ export const StockDisplay = () => {
                           : "ring-1 ring-slate-100 dark:ring-slate-800 hover:ring-indigo-500/20"
                     )}
                   >
-                    {/* Visual indicators at the top edge of the card */}
                     <div className={cn(
                       "h-1.5 w-full absolute top-0 left-0",
                       hasCriticalStock 
@@ -322,14 +438,14 @@ export const StockDisplay = () => {
                     )} />
 
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 pt-5">
-                      <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <CardTitle className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                         {platform.platform_name}
                         {hasCriticalStock ? (
-                          <ShieldAlert className="h-4 w-4 text-red-500 animate-bounce" />
+                          <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
                         ) : hasLowStock ? (
-                          <BadgeAlert className="h-4 w-4 text-amber-500" />
+                          <BadgeAlert className="h-3.5 w-3.5 text-amber-500" />
                         ) : (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                         )}
                       </CardTitle>
                       {platform.is_external_stock_enabled && (
@@ -338,13 +454,13 @@ export const StockDisplay = () => {
                           disabled={loadingExternalStates[platform.platform_name]}
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
+                          className="h-7 w-7 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-full"
                         >
-                          <RefreshCw className={cn("h-3.5 w-3.5", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
+                          <RefreshCw className={cn("h-3 w-3", loadingExternalStates[platform.platform_name] && "animate-spin text-indigo-500")} />
                         </Button>
                       )}
                     </CardHeader>
-                    <CardContent className="space-y-1.5 pb-5">
+                    <CardContent className="space-y-1.5 pb-5 px-3">
                       {platformStock
                         .sort(sortStock)
                         .map(item => renderStockItem(item, platform.platform_name))}
