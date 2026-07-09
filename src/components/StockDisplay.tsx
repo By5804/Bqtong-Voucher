@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2 } from "lucide-react";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Check, ArrowRight, Zap } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,6 +13,8 @@ import { useDenominations, PlatformDenomination } from "@/contexts/DenominationC
 import { formatNominalDisplay, cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
@@ -28,9 +30,16 @@ export const StockDisplay = () => {
   const [stock, setStock] = useState<StockData[]>([]);
   const [loadingInternal, setLoadingInternal] = useState(true);
   const [loadingExternalStates, setLoadingExternalStates] = useState<Record<string, boolean>>({});
+  const [syncingStates, setSyncingStates] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { platforms: denominationPlatforms, loading: loadingDenominations } = useDenominations();
   const [sortBy, setSortBy] = useState<'nominal' | 'internal' | 'external'>('nominal');
+
+  // Manual sale modal state (for N/A items)
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [selectedManualItem, setSelectedManualItem] = useState<{ platform: Platform; nominal: string; internal: number } | null>(null);
+  const [manualQuantity, setManualQuantity] = useState(1);
+  const [submittingManual, setSubmittingManual] = useState(false);
 
   const visiblePlatforms = useMemo(() => 
     denominationPlatforms.filter(p => p.is_visible_on_dashboard),
@@ -143,25 +152,97 @@ export const StockDisplay = () => {
 
   const isLoading = loadingInternal || loadingDenominations;
 
+  // Function to sync individual item stock
+  const handleSyncIndividualItem = async (platform: Platform, nominal: string, internal: number, external: number) => {
+    const diff = internal - external;
+    if (diff <= 0) return;
+
+    const key = `${platform}-${nominal}`;
+    setSyncingStates(prev => ({ ...prev, [key]: true }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('mark-vouchers-sold', {
+        body: { platform, nominal, quantity: diff },
+      });
+
+      if (error) {
+        toast({ title: "Gagal Sinkronisasi", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Sinkronisasi Berhasil", description: `${diff} voucher pada ${platform} - ${formatNominalDisplay(nominal, platform)} berhasil ditandai terjual.` });
+        // Refresh stock numbers
+        fetchInternalStock();
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncingStates(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const openManualSale = (platform: Platform, nominal: string, internal: number) => {
+    setSelectedManualItem({ platform, nominal, internal });
+    setManualQuantity(1);
+    setIsManualModalOpen(true);
+  };
+
+  const submitManualSale = async () => {
+    if (!selectedManualItem) return;
+    if (manualQuantity <= 0) {
+      toast({ title: "Error", description: "Jumlah harus lebih dari 0", variant: "destructive" });
+      return;
+    }
+    if (manualQuantity > selectedManualItem.internal) {
+      toast({ title: "Error", description: "Jumlah penjualan melebihi stok internal yang tersedia", variant: "destructive" });
+      return;
+    }
+
+    setSubmittingManual(true);
+    try {
+      const { error } = await supabase.functions.invoke('mark-vouchers-sold', {
+        body: { 
+          platform: selectedManualItem.platform, 
+          nominal: selectedManualItem.nominal, 
+          quantity: manualQuantity 
+        },
+      });
+
+      if (error) {
+        toast({ title: "Gagal", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Sukses", description: `${manualQuantity} voucher berhasil ditandai terjual.` });
+        setIsManualModalOpen(false);
+        fetchInternalStock();
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingManual(false);
+    }
+  };
+
   const renderStockItem = (item: StockData, platformName: string, isLast: boolean) => {
     const { nominal, internal, external } = item;
+    const itemKey = `${platformName}-${nominal}`;
     
     const isOutOfStock = (external === null || external === 'N/A' || Number(external) === 0) && internal === 0;
     const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
-    
-    // Normal active stock means it has stock and is NOT in the low warning state
     const hasActiveStock = (internal > 0 || (typeof external === 'number' && external > 0)) && !isLowStock;
+
+    const isExternalValidNumber = typeof external === 'number';
+    const canSync = isExternalValidNumber && internal > external;
+    const isSynced = isExternalValidNumber && internal === external;
+    const isSyncing = !!syncingStates[itemKey];
 
     const displayName = formatNominalDisplay(nominal, platformName);
 
     return (
       <div 
-        key={`${platformName}-${nominal}`} 
+        key={itemKey} 
         className={cn(
-          "flex items-center justify-between py-2 px-3 transition-all",
+          "flex items-center justify-between py-2.5 px-3 transition-all",
           !isLast && "border-b border-slate-100/80 dark:border-slate-800/40",
           isLowStock
-            ? "bg-amber-50/80 dark:bg-amber-950/20 hover:bg-amber-100/80 border-l-4 border-l-amber-500 pl-2"
+            ? "bg-amber-50/80 dark:bg-amber-955/20 hover:bg-amber-100/80 border-l-4 border-l-amber-500 pl-2"
             : hasActiveStock 
               ? "bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" 
               : isOutOfStock 
@@ -192,8 +273,9 @@ export const StockDisplay = () => {
           </Tooltip>
         </div>
 
-        {/* Right Section: Compact Vertical aligned stock badge */}
-        <div className="flex items-center shrink-0 py-0.5">
+        {/* Right Section: Compact stock badge and Action button */}
+        <div className="flex items-center shrink-0 py-0.5 gap-2">
+          {/* Stock Capsules */}
           <div className={cn(
             "flex items-center divide-x divide-slate-200/80 dark:divide-slate-700/50 rounded-lg border text-xs font-mono shadow-sm bg-white dark:bg-slate-900",
             isLowStock
@@ -236,6 +318,63 @@ export const StockDisplay = () => {
               <span className="font-extrabold">{internal}</span>
             </div>
           </div>
+
+          {/* New "Samakan Stok / Terjual" Action Button */}
+          {external === 'N/A' ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => openManualSale(platformName as Platform, nominal, internal)}
+                  disabled={internal === 0}
+                  size="icon"
+                  className={cn(
+                    "h-7 w-7 rounded-lg shrink-0 transition-all border shadow-sm",
+                    internal > 0 
+                      ? "bg-slate-900 hover:bg-slate-800 text-white border-slate-900" 
+                      : "bg-slate-50 text-slate-300 border-slate-100"
+                  )}
+                >
+                  <Zap className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Tandai Terjual Manual
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => handleSyncIndividualItem(platformName as Platform, nominal, internal, Number(external))}
+                  disabled={!canSync || isSyncing}
+                  size="icon"
+                  className={cn(
+                    "h-7 w-7 rounded-lg shrink-0 transition-all border shadow-sm",
+                    canSync 
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 hover:scale-105 active:scale-95" 
+                      : isSynced 
+                        ? "bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default" 
+                        : "bg-slate-50 text-slate-300 border-slate-100"
+                  )}
+                >
+                  {isSyncing ? (
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                  ) : isSynced ? (
+                    <Check className="h-3 w-3 font-bold" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                {canSync 
+                  ? `Samakan Stok (Tandai ${internal - Number(external)} Terjual)` 
+                  : isSynced 
+                    ? "Stok Sudah Sesuai" 
+                    : "Stok Database Sesuai/Lebih Sedikit"}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
     );
@@ -375,6 +514,39 @@ export const StockDisplay = () => {
               })}
         </div>
       </div>
+
+      {/* Mini Modal for quick manual sale of N/A stock items */}
+      <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>Tandai Terjual</DialogTitle>
+            <DialogDescription>
+              Tandai voucher {selectedManualItem && selectedManualItem.platform} - {selectedManualItem && formatNominalDisplay(selectedManualItem.nominal, selectedManualItem.platform)} sebagai terjual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-3">
+            <div className="space-y-1">
+              <Label htmlFor="qty-manual">Jumlah Terjual (FIFO)</Label>
+              <Input
+                id="qty-manual"
+                type="number"
+                min="1"
+                max={selectedManualItem?.internal || 1}
+                value={manualQuantity}
+                onChange={e => setManualQuantity(Math.max(1, Math.min(selectedManualItem?.internal || 1, parseInt(e.target.value) || 1)))}
+                disabled={submittingManual}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Stok internal tersedia: <span className="font-bold text-slate-700">{selectedManualItem?.internal}</span></p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsManualModalOpen(false)} disabled={submittingManual}>Batal</Button>
+            <Button onClick={submitManualSale} disabled={submittingManual}>
+              {submittingManual ? "Memproses..." : "Konfirmasi Terjual"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 };
