@@ -4,16 +4,15 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, PauseCircle } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Database } from "@/integrations/supabase/types";
-import { useDenominations } from "@/contexts/DenominationContext";
+import { useDenominations, PlatformDenomination } from "@/contexts/DenominationContext";
 import { formatNominalDisplay, cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
@@ -47,13 +46,18 @@ export const StockDisplay = () => {
       )
     );
 
-    const platformInfo = denominationPlatforms.find(p => p.platform_name === targetPlatform);
+    const platformInfo = (denominationPlatforms as PlatformDenomination[]).find(p => p.platform_name === targetPlatform);
     if (!platformInfo || !platformInfo.is_external_stock_enabled) {
         setLoadingExternalStates(prev => ({ ...prev, [targetPlatform]: false }));
         return;
     }
 
-    const externalStockPromises = platformInfo.denominations.map(async (nominal) => {
+    // Filter out denominations that are currently on hold
+    const activeDenominations = platformInfo.denominations.filter(
+      nominal => !(platformInfo.on_hold_denominations || []).includes(nominal)
+    );
+
+    const externalStockPromises = activeDenominations.map(async (nominal) => {
         try {
           const { data, error } = await supabase.functions.invoke('check-external-stock', {
             body: { platform: targetPlatform, nominal: nominal },
@@ -98,20 +102,28 @@ export const StockDisplay = () => {
     for (const platform of visiblePlatforms) {
       for (const nominal of platform.denominations) {
         const isOnHold = (platform.on_hold_denominations || []).includes(nominal);
-        const promise = supabase
-          .from("vouchers")
-          .select("*", { count: "exact", head: true })
-          .eq("platform", platform.platform_name)
-          .eq("nominal", nominal)
-          .eq("status", "available")
-          .then(({ count }) => ({
+        
+        // Skip on-hold products entirely from the dashboard main display
+        if (isOnHold) continue;
+        
+        const fetchItem = async (): Promise<StockData> => {
+          const { count } = await supabase
+            .from("vouchers")
+            .select("*", { count: "exact", head: true })
+            .eq("platform", platform.platform_name)
+            .eq("nominal", nominal)
+            .eq("status", "available");
+          
+          return {
             platform: platform.platform_name as Platform,
             nominal,
             internal: count || 0,
             external: platform.is_external_stock_enabled ? null : 'N/A' as const,
             isOnHold
-          }));
-        stockPromises.push(promise);
+          };
+        };
+        
+        stockPromises.push(fetchItem());
       }
     }
     
@@ -135,22 +147,19 @@ export const StockDisplay = () => {
 
   const isLoading = loadingInternal || loadingDenominations;
 
-  const activeStock = stock.filter(item => !item.isOnHold);
-  const onHoldStock = stock.filter(item => item.isOnHold);
-
   const renderStockItem = (item: StockData, platformName: string) => {
-    const { nominal, internal, external, isOnHold } = item;
+    const { nominal, internal, external } = item;
     const isOutOfStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) === 0;
     const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
     
     return (
       <div key={`${platformName}-${nominal}`} className={cn(
         "flex justify-between items-center p-1.5 rounded-md",
-        isOnHold ? "bg-gray-50/50" : (isOutOfStock ? "bg-red-50/70" : (isLowStock ? "bg-green-50/70" : ""))
+        isOutOfStock ? "bg-red-50/70" : (isLowStock ? "bg-green-50/70" : "")
       )}>
         <span className={cn(
           "text-sm font-medium",
-          isOnHold ? "text-gray-400 italic" : (isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : "text-muted-foreground"))
+          isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : "text-muted-foreground")
         )}>
           {formatNominalDisplay(nominal, platformName)}
         </span>
@@ -165,7 +174,7 @@ export const StockDisplay = () => {
               ) : (
                 <span className={cn(
                   "font-semibold text-sm",
-                  isOnHold ? "text-gray-400" : (isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : ""))
+                  isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : "")
                 )}>{external}</span>
               )}
             </TooltipTrigger>
@@ -179,7 +188,7 @@ export const StockDisplay = () => {
               <span className="text-xs text-gray-500">Int:</span>
               <span className={cn(
                 "text-lg font-bold",
-                isOnHold ? "text-gray-400" : (isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : ""))
+                isOutOfStock ? "text-red-700" : (isLowStock ? "text-green-700" : "")
               )}>{internal}</span>
             </TooltipTrigger>
             <TooltipContent>
@@ -244,7 +253,7 @@ export const StockDisplay = () => {
                   </Card>
                 ))
               : visiblePlatforms.map((platform) => {
-                  const platformStock = activeStock.filter(item => item.platform === platform.platform_name);
+                  const platformStock = stock.filter(item => item.platform === platform.platform_name);
                   if (platformStock.length === 0) return null;
                   
                   return (
@@ -278,39 +287,6 @@ export const StockDisplay = () => {
                 })}
           </div>
         </div>
-
-        {onHoldStock.length > 0 && (
-          <div className="pt-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Separator className="flex-1" />
-              <div className="flex items-center gap-2 px-2 text-orange-600 bg-orange-50 py-1 rounded-full text-sm font-semibold border border-orange-100">
-                <PauseCircle className="h-4 w-4" />
-                List On Hold
-              </div>
-              <Separator className="flex-1" />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-75">
-              {visiblePlatforms.map((platform) => {
-                const platformHoldStock = onHoldStock.filter(item => item.platform === platform.platform_name);
-                if (platformHoldStock.length === 0) return null;
-
-                return (
-                  <Card key={`hold-${platform.platform_name}`} className="border-orange-100 bg-orange-50/10">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold text-orange-700/70">{platform.platform_name} (Hold)</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-1">
-                      {platformHoldStock
-                        .sort(sortStock)
-                        .map(item => renderStockItem(item, platform.platform_name))}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </TooltipProvider>
   );
