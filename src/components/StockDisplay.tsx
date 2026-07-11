@@ -217,9 +217,12 @@ export const StockDisplay = () => {
     const { nominal, internal, external } = item;
     const itemKey = `${platformName}-${nominal}`;
     
-    const isOutOfStock = (external === null || external === 'N/A' || Number(external) === 0) && internal === 0;
-    const isLowStock = external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
-    const hasActiveStock = (internal > 0 || (typeof external === 'number' && external > 0)) && !isLowStock;
+    // PERBAIKAN: Nominal dianggap Out of Stock (Merah) jika stok eksternal live = 0, atau stok internal local = 0 untuk tipe N/A
+    const isOutOfStock = (external !== null && external !== 'loading' && external !== 'N/A' && Number(external) === 0) || 
+                         ((external === 'N/A' || external === null) && internal === 0);
+                         
+    const isLowStock = !isOutOfStock && external != null && external !== 'loading' && external !== 'N/A' && Number(external) > 0 && Number(external) < 5;
+    const hasActiveStock = !isOutOfStock && !isLowStock && (internal > 0 || (typeof external === 'number' && external >= 5));
 
     const displayName = formatNominalDisplay(nominal, platformName);
 
@@ -229,12 +232,12 @@ export const StockDisplay = () => {
         className={cn(
           "flex items-center justify-between py-2.5 px-3 transition-all",
           !isLast && "border-b border-slate-100/80 dark:border-slate-800/40",
-          isLowStock
-            ? "bg-amber-50/80 dark:bg-amber-955/20 hover:bg-amber-100/80 border-l-4 border-l-amber-500 pl-2"
-            : hasActiveStock 
-              ? "bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" 
-              : isOutOfStock 
-                ? "bg-red-50/20 dark:bg-red-950/5 hover:bg-red-50/40 dark:hover:bg-red-950/10" 
+          isOutOfStock
+            ? "bg-red-50/40 dark:bg-red-950/10 hover:bg-red-50/60 dark:hover:bg-red-950/20 border-l-4 border-l-red-500 pl-2"
+            : isLowStock
+              ? "bg-amber-50/80 dark:bg-amber-955/20 hover:bg-amber-100/80 border-l-4 border-l-amber-500 pl-2"
+              : hasActiveStock 
+                ? "bg-emerald-50/40 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" 
                 : "hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
         )}
       >
@@ -244,12 +247,12 @@ export const StockDisplay = () => {
             <TooltipTrigger asChild>
               <span className={cn(
                 "block text-xs font-bold truncate cursor-help text-left select-none tracking-tight",
-                isLowStock
-                  ? "text-amber-800 dark:text-amber-300"
-                  : hasActiveStock 
-                    ? "text-emerald-800 dark:text-emerald-400" 
-                    : isOutOfStock 
-                      ? "text-red-700/80 dark:text-red-400/80 font-semibold" 
+                isOutOfStock
+                  ? "text-red-700 dark:text-red-400 font-extrabold"
+                  : isLowStock
+                    ? "text-amber-800 dark:text-amber-300"
+                    : hasActiveStock 
+                      ? "text-emerald-800 dark:text-emerald-400" 
                       : "text-slate-700 dark:text-slate-300"
               )}>
                 {displayName}
@@ -265,20 +268,20 @@ export const StockDisplay = () => {
         <div className="flex items-center shrink-0 py-0.5">
           <div className={cn(
             "flex items-center divide-x divide-slate-200/80 dark:divide-slate-700/50 rounded-lg border text-sm font-mono shadow-sm bg-white dark:bg-slate-900",
-            isLowStock
-              ? "border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-400"
-              : hasActiveStock 
-                ? "border-emerald-200 dark:border-emerald-900/40" 
-                : isOutOfStock 
-                  ? "border-red-100 dark:border-red-900/20 text-red-700/60 dark:text-red-400/60" 
+            isOutOfStock
+              ? "border-red-400 dark:border-red-800 text-red-700 dark:text-red-400"
+              : isLowStock
+                ? "border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                : hasActiveStock 
+                  ? "border-emerald-200 dark:border-emerald-900/40" 
                   : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
           )}>
             {/* EXT STOCK */}
             <div className={cn(
               "flex items-center justify-center w-[48px] py-1 text-center",
-              isLowStock && "bg-amber-500/10"
+              isOutOfStock ? "bg-red-500/10" : isLowStock ? "bg-amber-500/10" : ""
             )}>
-              <span className={cn("text-sm font-bold", isLowStock && "text-amber-600 dark:text-amber-400 animate-pulse")}>
+              <span className={cn("text-sm font-bold", isOutOfStock && "text-red-600 dark:text-red-400 animate-pulse")}>
                 {external === null ? (
                   <span className="animate-pulse">...</span>
                 ) : external === 'loading' ? (
@@ -292,12 +295,12 @@ export const StockDisplay = () => {
             {/* INT STOCK */}
             <div className={cn(
               "flex items-center justify-center w-[48px] py-1 text-center rounded-r-lg",
-              isLowStock
-                ? "bg-amber-500/20 font-black text-amber-700 dark:text-amber-300"
-                : hasActiveStock 
-                  ? "bg-emerald-500/10 font-black text-emerald-700 dark:text-emerald-400" 
-                  : isOutOfStock 
-                    ? "bg-red-500/5 font-bold text-red-600/60 dark:text-red-400/60" 
+              isOutOfStock
+                ? "bg-red-500/20 font-black text-red-700 dark:text-red-300"
+                : isLowStock
+                  ? "bg-amber-500/20 font-black text-amber-700 dark:text-amber-300"
+                  : hasActiveStock 
+                    ? "bg-emerald-500/10 font-black text-emerald-700 dark:text-emerald-400" 
                     : "bg-slate-50 dark:bg-slate-800"
             )}>
               <span className="text-sm font-extrabold">{internal}</span>
@@ -378,11 +381,12 @@ export const StockDisplay = () => {
                 const platformStock = stock.filter(item => item.platform === platform.platform_name);
                 if (platformStock.length === 0) return null;
                 
-                const hasCriticalStock = platformStock.every(item => {
-                  return (item.external === null || item.external === 'N/A' || Number(item.external) === 0) && item.internal === 0;
+                // PERBAIKAN: Jika ada salah satu saja nominal yang stok eksternalnya 0, kategori tsb berstatus KRITIS (Merah)
+                const hasCriticalStock = platformStock.some(item => {
+                  return item.external !== null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) === 0;
                 });
                 
-                const hasLowStock = platformStock.some(item => {
+                const hasLowStock = !hasCriticalStock && platformStock.some(item => {
                   return item.external != null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) > 0 && Number(item.external) < 5;
                 });
 
