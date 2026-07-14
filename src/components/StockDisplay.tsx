@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Zap, AlertTriangle } from "lucide-react";
+import { RefreshCw, ShieldAlert, BadgeAlert, Layers, CheckCircle2, Zap, AlertTriangle, PlusCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,6 +14,7 @@ import { formatNominalDisplay, cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QuickBulkInputModal } from "@/components/QuickBulkInputModal";
 
 type Platform = Database['public']['Tables']['vouchers']['Row']['platform'];
 
@@ -45,6 +46,9 @@ export const StockDisplay = () => {
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
   const [platformToSync, setPlatformToSync] = useState<string | null>(null);
   const [syncPreview, setSyncPreview] = useState<SyncPreviewItem[]>([]);
+
+  // Quick Bulk Input Modal state
+  const [bulkInputItem, setBulkInputItem] = useState<{ platform: string; nominal: string } | null>(null);
 
   const visiblePlatforms = useMemo(() => 
     denominationPlatforms.filter(p => p.is_visible_on_dashboard),
@@ -217,7 +221,6 @@ export const StockDisplay = () => {
     const { nominal, internal, external } = item;
     const itemKey = `${platformName}-${nominal}`;
     
-    // PERBAIKAN: Nominal dianggap Out of Stock (Merah) jika stok eksternal live = 0, atau stok internal local = 0 untuk tipe N/A
     const isOutOfStock = (external !== null && external !== 'loading' && external !== 'N/A' && Number(external) === 0) || 
                          ((external === 'N/A' || external === null) && internal === 0);
                          
@@ -264,8 +267,9 @@ export const StockDisplay = () => {
           </Tooltip>
         </div>
 
-        {/* Right Section: Compact stock count capsules (No labels, larger text, no individual buttons) */}
-        <div className="flex items-center shrink-0 py-0.5">
+        {/* Right Section: Stock count capsules & Quick Input button */}
+        <div className="flex items-center shrink-0 py-0.5 gap-2">
+          {/* Stock Capsules */}
           <div className={cn(
             "flex items-center divide-x divide-slate-200/80 dark:divide-slate-700/50 rounded-lg border text-sm font-mono shadow-sm bg-white dark:bg-slate-900",
             isOutOfStock
@@ -306,6 +310,23 @@ export const StockDisplay = () => {
               <span className="text-sm font-extrabold">{internal}</span>
             </div>
           </div>
+
+          {/* ADDED: Icon Button to trigger quick bulk input popup */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setBulkInputItem({ platform: platformName, nominal })}
+                className="h-7 w-7 rounded-lg text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 border border-indigo-100/50 dark:border-indigo-900/30 shrink-0"
+              >
+                <PlusCircle className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              Input Stok Massal
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
     );
@@ -381,7 +402,6 @@ export const StockDisplay = () => {
                 const platformStock = stock.filter(item => item.platform === platform.platform_name);
                 if (platformStock.length === 0) return null;
                 
-                // PERBAIKAN: Jika ada salah satu saja nominal yang stok eksternalnya 0, kategori tsb berstatus KRITIS (Merah)
                 const hasCriticalStock = platformStock.some(item => {
                   return item.external !== null && item.external !== 'loading' && item.external !== 'N/A' && Number(item.external) === 0;
                 });
@@ -541,6 +561,17 @@ export const StockDisplay = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Bulk Input Modal */}
+      {bulkInputItem && (
+        <QuickBulkInputModal
+          isOpen={!!bulkInputItem}
+          onClose={() => setBulkInputItem(null)}
+          platform={bulkInputItem.platform}
+          nominal={bulkInputItem.nominal}
+          onSuccess={fetchInternalStock}
+        />
+      )}
     </TooltipProvider>
   );
 };
